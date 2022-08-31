@@ -57,6 +57,23 @@ func main() {
 	put2()
 	// read
 	read()
+	put()
+
+	readall()
+}
+
+func readall() {
+	if err := db.View(
+		func(tx *nutsdb.Tx) error {
+			ens, err := tx.GetAll(bucket)
+			for _, e := range ens {
+				fmt.Println("GetAll val:", string(e.Value))
+			}
+			return err
+			//return tx.Delete(bucket, key)
+		}); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func delete() {

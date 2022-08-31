@@ -69,6 +69,9 @@ type Options struct {
 
 	//is backup Database
 	BackUP bool
+
+	//is BTree mode
+	BTree bool
 }
 
 var defaultSegmentSize int64 = 256 * 1024 * 1024
@@ -85,6 +88,7 @@ var DefaultOptions = func() Options {
 		LoadFileStartNum:     -1,
 		LoadFileEndNum:       -1,
 		BackUP:               false,
+		BTree:                true,
 	}
 }()
 

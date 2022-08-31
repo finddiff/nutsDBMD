@@ -17,6 +17,7 @@ package nutsDBMD
 import (
 	"bytes"
 	"fmt"
+	"github.com/google/btree"
 	"regexp"
 	"time"
 
@@ -138,11 +139,40 @@ func (tx *Tx) Get(bucket string, key []byte) (e *Entry, err error) {
 
 	idxMode := tx.db.opt.EntryIdxMode
 
-	if idxMode == HintBPTSparseIdxMode {
-		return tx.getByHintBPTSparseIdx(bucket, key)
-	}
-
 	if idxMode == HintKeyValAndRAMIdxMode || idxMode == HintKeyAndRAMIdxMode {
+		if tx.db.opt.BTree {
+			err = nil
+			e = nil
+			if idx, ok := tx.db.BTreeIdx[bucket]; ok {
+				r := idx.Get(&Record{H: &Hint{Key: key}}).(*Record)
+				if r != nil {
+					if idxMode == HintKeyAndRAMIdxMode {
+						path := tx.db.getDataPath(r.H.FileID)
+						df, err := tx.db.fm.getDataFile(path, tx.db.opt.SegmentSize)
+						if err != nil {
+							return nil, err
+						}
+						defer func(rwManager RWManager) {
+							err := rwManager.Release()
+							if err != nil {
+								return
+							}
+						}(df.rwManager)
+
+						item, err := df.ReadAt(int(r.H.DataPos))
+						if err != nil {
+							return nil, fmt.Errorf("read err. pos %d, key %s, err %s", r.H.DataPos, string(key), err)
+						}
+
+						return item, nil
+					} else {
+						e = r.E
+					}
+				}
+			}
+			return
+		}
+
 		if idx, ok := tx.db.BPTreeIdx[bucket]; ok {
 			r, err := idx.Find(key)
 			if err != nil {
@@ -197,11 +227,19 @@ func (tx *Tx) GetAll(bucket string) (entries Entries, err error) {
 
 	idxMode := tx.db.opt.EntryIdxMode
 
-	if idxMode == HintBPTSparseIdxMode {
-		return tx.getAllByHintBPTSparseIdx(bucket)
-	}
-
 	if idxMode == HintKeyValAndRAMIdxMode || idxMode == HintKeyAndRAMIdxMode {
+		if tx.db.opt.BTree {
+			if idx, ok := tx.db.BTreeIdx[bucket]; ok {
+				idx.Ascend(func(item btree.Item) bool {
+					if item == nil {
+						return false
+					}
+					entries = append(entries, item.(*Record).E)
+					return true
+				})
+			}
+			return
+		}
 		if index, ok := tx.db.BPTreeIdx[bucket]; ok {
 			records, err := index.All()
 			if err != nil {
@@ -228,46 +266,18 @@ func (tx *Tx) RangeScan(bucket string, start, end []byte) (es Entries, err error
 		return nil, err
 	}
 
-	if tx.db.opt.EntryIdxMode == HintBPTSparseIdxMode {
-		newStart, newEnd := getNewKey(bucket, start), getNewKey(bucket, end)
-		records, err := tx.db.ActiveBPTreeIdx.Range(newStart, newEnd)
-		if err == nil && records != nil {
-			for _, r := range records {
-				path := tx.db.getDataPath(r.H.FileID)
-				df, err := tx.db.fm.getDataFile(path, tx.db.opt.SegmentSize)
-				if err != nil {
-					releaseErr := df.rwManager.Release()
-					if releaseErr != nil {
-						return nil, releaseErr
-					}
-					return nil, err
+	if tx.db.opt.BTree {
+		es = nil
+		if idx, ok := tx.db.BTreeIdx[bucket]; ok {
+			idx.AscendRange(&Record{H: &Hint{Key: start}}, &Record{H: &Hint{Key: end}}, func(item btree.Item) bool {
+				if item == nil {
+					return false
 				}
-				if item, err := df.ReadAt(int(r.H.DataPos)); err == nil {
-					es = append(es, item)
-				} else {
-					releaseErr := df.rwManager.Release()
-					if releaseErr != nil {
-						return nil, releaseErr
-					}
-					return nil, fmt.Errorf("HintIdx r.Hi.dataPos %d, err %s", r.H.DataPos, err)
-				}
-				err = df.rwManager.Release()
-				if err != nil {
-					return nil, err
-				}
-			}
+				es = append(es, item.(*Record).E)
+				return true
+			})
 		}
-
-		entries, err := tx.rangeScanOnDisk(bucket, start, end)
-		if err != nil {
-			return nil, err
-		}
-		es = append(es, entries...)
-
-		if len(es) == 0 {
-			return nil, ErrRangeScan
-		}
-		return processEntriesScanOnDisk(es), nil
+		return
 	}
 
 	if index, ok := tx.db.BPTreeIdx[bucket]; ok {
@@ -798,8 +808,24 @@ func (tx *Tx) PrefixScan(bucket string, prefix []byte, offsetNum int, limitNum i
 		return nil, off, err
 	}
 
-	if tx.db.opt.EntryIdxMode == HintBPTSparseIdxMode {
-		return tx.prefixScanByHintBPTSparseIdx(bucket, prefix, offsetNum, limitNum)
+	if tx.db.opt.BTree {
+		es = nil
+		countOff := 0
+		if idx, ok := tx.db.BTreeIdx[bucket]; ok {
+			idx.AscendGreaterOrEqual(&Record{H: &Hint{Key: prefix}}, func(item btree.Item) bool {
+				countOff++
+				if item == nil {
+					return false
+				}
+
+				if countOff < offsetNum {
+					return true
+				}
+				es = append(es, item.(*Record).E)
+				return true
+			})
+		}
+		return
 	}
 
 	if idx, ok := tx.db.BPTreeIdx[bucket]; ok {
@@ -834,8 +860,32 @@ func (tx *Tx) PrefixSearchScan(bucket string, prefix []byte, reg string, offsetN
 		return nil, off, err
 	}
 
-	if tx.db.opt.EntryIdxMode == HintBPTSparseIdxMode {
-		return tx.prefixSearchScanByHintBPTSparseIdx(bucket, prefix, reg, offsetNum, limitNum)
+	if tx.db.opt.BTree {
+		es = nil
+		countOff := 0
+		if idx, ok := tx.db.BTreeIdx[bucket]; ok {
+			rgx, err := regexp.Compile(reg)
+			if err != nil {
+				return nil, off, ErrBadRegexp
+			}
+			idx.AscendGreaterOrEqual(&Record{H: &Hint{Key: prefix}}, func(item btree.Item) bool {
+				countOff++
+				if item == nil {
+					return false
+				}
+
+				if !rgx.Match(item.(*Record).E.Key) {
+					return true
+				}
+
+				if countOff < offsetNum {
+					return true
+				}
+				es = append(es, item.(*Record).E)
+				return true
+			})
+		}
+		return
 	}
 
 	if idx, ok := tx.db.BPTreeIdx[bucket]; ok {

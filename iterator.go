@@ -52,6 +52,11 @@ func (it *Iterator) SetNext() (bool, error) {
 
 	if it.current == nil && (it.tx.db.opt.EntryIdxMode == HintKeyAndRAMIdxMode ||
 		it.tx.db.opt.EntryIdxMode == HintKeyValAndRAMIdxMode) {
+
+		if it.tx.db.opt.BTree {
+			return false, fmt.Errorf("%s mode is not supported in iterators", "BTree")
+		}
+
 		if index, ok := it.tx.db.BPTreeIdx[it.bucket]; ok {
 			err := it.Seek(index.FirstKey)
 			if err != nil {
@@ -115,6 +120,10 @@ func (it *Iterator) Seek(key []byte) error {
 		return fmt.Errorf("%s mode is not supported in iterators", "HintBPTSparseIdxMode")
 	}
 
+	if it.tx.db.opt.BTree {
+		return fmt.Errorf("%s mode is not supported in iterators", "BTree")
+	}
+
 	it.current = it.tx.db.BPTreeIdx[it.bucket].FindLeaf(key)
 	if it.current == nil {
 		it.i = -1
@@ -123,7 +132,6 @@ func (it *Iterator) Seek(key []byte) error {
 	for it.i = 0; it.i < it.current.KeysNum && compare(it.current.Keys[it.i], key) < 0; {
 		it.i++
 	}
-
 	return nil
 }
 

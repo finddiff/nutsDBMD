@@ -14,7 +14,11 @@
 
 package nutsDBMD
 
-import "time"
+import (
+	"bytes"
+	"github.com/google/btree"
+	"time"
+)
 
 // Record records entry and hint.
 type Record struct {
@@ -43,4 +47,8 @@ func (r *Record) UpdateRecord(h *Hint, e *Entry) error {
 	r.H = h
 
 	return nil
+}
+
+func (r *Record) Less(than btree.Item) bool {
+	return bytes.Compare(r.H.Key, than.(*Record).H.Key) == -1
 }

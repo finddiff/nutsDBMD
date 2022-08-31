@@ -149,40 +149,6 @@ func (suite *TxBucketTestSuite) TestB_DeleteBucket() {
 
 }
 
-func (suite *TxBucketTestSuite) TestC_HintBPTSparseIdxMode() {
-	fileDir := "/tmp/nutsdbtestbuckettxx"
-	files, _ := ioutil.ReadDir(fileDir)
-	for _, f := range files {
-		name := f.Name()
-		if name != "" {
-			err := os.RemoveAll(fileDir + "/" + name)
-			if err != nil {
-				panic(err)
-			}
-		}
-	}
-	opt = DefaultOptions
-	opt.Dir = fileDir
-	opt.SegmentSize = 8 * 1024
-	opt.EntryIdxMode = HintBPTSparseIdxMode
-	suite.DbHBPT, err = Open(opt)
-	assert.Nil(suite.T(), err)
-
-	tx, err := suite.DbHBPT.Begin(false)
-	assert.Nil(suite.T(), err)
-
-	err = tx.IterateBuckets(DataStructureList, "*", func(bucket string) bool {
-		return true
-	})
-	assert.Error(suite.T(), err)
-
-	err = tx.DeleteBucket(DataStructureList, "")
-	assert.Error(suite.T(), err)
-
-	err = tx.Commit()
-	assert.Nil(suite.T(), err)
-}
-
 func TestTxBucketSuit(t *testing.T) {
 	suite.Run(t, new(TxBucketTestSuite))
 }

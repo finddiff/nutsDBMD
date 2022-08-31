@@ -43,25 +43,6 @@ func Init() {
 	opt.SegmentSize = 8 * 1024
 }
 
-func InitForBPTSparseIdxMode() {
-	fileDir := "/tmp/nutsdbtesttx2"
-	files, _ := ioutil.ReadDir(fileDir)
-	for _, f := range files {
-		name := f.Name()
-		if name != "" {
-			err := os.RemoveAll(fileDir + "/" + name)
-			if err != nil {
-				panic(err)
-			}
-		}
-	}
-
-	opt = DefaultOptions
-	opt.Dir = fileDir
-	opt.SegmentSize = 1024
-	opt.EntryIdxMode = HintBPTSparseIdxMode
-}
-
 func TestTx_PutAndGet(t *testing.T) {
 
 	var (
