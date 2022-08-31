@@ -507,28 +507,10 @@ func (db *DB) getMaxFileIDAndFileIDs() (maxFileID int64, dataFileIds []int) {
 // getActiveFileWriteOff returns the write offset of activeFile.
 func (db *DB) getActiveFileWriteOff() (off int64, err error) {
 	off = 0
-	for {
-		if item, err := db.ActiveFile.ReadAt(int(off)); err == nil {
-			if item == nil {
-				break
-			}
-
-			off += item.Size()
-			// set ActiveFileActualSize
-			db.ActiveFile.ActualSize = off
-
-		} else {
-			if err == io.EOF {
-				break
-			}
-			if err == ErrIndexOutOfBound {
-				break
-			}
-
-			return -1, fmt.Errorf("when build activeDataIndex readAt err: %s", err)
-		}
+	_, off, err = db.ActiveFile.ReadAll()
+	if err != nil {
+		return -1, fmt.Errorf("when build activeDataIndex readAt err: %s", err)
 	}
-
 	return
 }
 

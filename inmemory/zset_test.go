@@ -16,11 +16,10 @@ package inmemory
 
 import (
 	"errors"
-	"testing"
-
+	nutsdb "github.com/finddiff/nutsDBMD"
+	"github.com/finddiff/nutsDBMD/ds/zset"
 	"github.com/stretchr/testify/assert"
-	"github.com/xujiajun/nutsdb"
-	"github.com/xujiajun/nutsdb/ds/zset"
+	"testing"
 )
 
 func TestDB_ZAdd(t *testing.T) {

@@ -15,11 +15,10 @@
 package inmemory
 
 import (
-	"testing"
-
+	nutsdb "github.com/finddiff/nutsDBMD"
+	"github.com/finddiff/nutsDBMD/ds/list"
 	"github.com/stretchr/testify/assert"
-	"github.com/xujiajun/nutsdb"
-	"github.com/xujiajun/nutsdb/ds/list"
+	"testing"
 )
 
 func initRPushData(bucket, key string) error {

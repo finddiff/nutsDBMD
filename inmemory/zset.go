@@ -15,8 +15,8 @@
 package inmemory
 
 import (
-	"github.com/xujiajun/nutsdb"
-	"github.com/xujiajun/nutsdb/ds/zset"
+	nutsdb "github.com/finddiff/nutsDBMD"
+	"github.com/finddiff/nutsDBMD/ds/zset"
 )
 
 // ZAdd adds the specified member key with the specified score and specified val to the sorted set stored at bucket.

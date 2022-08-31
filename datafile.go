@@ -17,6 +17,7 @@ package nutsDBMD
 import (
 	"encoding/binary"
 	"errors"
+	"io/ioutil"
 )
 
 var (
@@ -45,6 +46,61 @@ type DataFile struct {
 	writeOff   int64
 	ActualSize int64
 	rwManager  RWManager
+}
+
+func (df *DataFile) ReadAll() (elist []*Entry, lastOffset int64, err error) {
+	off := 0
+	lastOffset = 0
+	buf, err := ioutil.ReadFile(df.path)
+	if err != nil {
+		return nil, lastOffset, err
+	}
+	Size := int64(len(buf))
+
+	for {
+		if int64(off+DataEntryHeaderSize) > Size {
+			break
+		}
+		headBuff := make([]byte, DataEntryHeaderSize)
+		copy(headBuff, buf[off:])
+		meta := readMetaData(headBuff)
+		e := &Entry{
+			crc:      binary.LittleEndian.Uint32(buf[off : off+4]),
+			Meta:     meta,
+			position: uint64(off),
+		}
+
+		if int64(off+int(meta.BucketSize+meta.KeySize+meta.ValueSize)) > Size {
+			break
+		}
+		off += DataEntryHeaderSize
+		bucketBuf := make([]byte, meta.BucketSize)
+		copy(bucketBuf, buf[off:])
+		e.Meta.Bucket = bucketBuf
+
+		off += int(meta.BucketSize)
+		keyBuf := make([]byte, meta.KeySize)
+		copy(keyBuf, buf[off:])
+		e.Key = keyBuf
+
+		off += int(meta.KeySize)
+		valueBuf := make([]byte, meta.ValueSize)
+		copy(valueBuf, buf[off:])
+		e.Value = valueBuf
+
+		off += int(meta.ValueSize)
+
+		crc := e.GetCrc(headBuff)
+		if crc != e.crc {
+			//fmt.Printf("return by e.crc crc%v e.crc:%v \n",crc,e.crc )
+			return
+		}
+
+		lastOffset = int64(off)
+		elist = append(elist, e)
+	}
+
+	return
 }
 
 // ReadAt returns entry at the given off(offset).

@@ -15,9 +15,8 @@
 package inmemory
 
 import (
+	nutsdb "github.com/finddiff/nutsDBMD"
 	"sync"
-
-	"github.com/xujiajun/nutsdb"
 )
 
 type ShardDB struct {

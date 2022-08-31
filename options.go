@@ -60,6 +60,15 @@ type Options struct {
 
 	// CleanFdsCacheThreshold represents the maximum threshold for recycling fd, it should be between 0 and 1.
 	CleanFdsCacheThreshold float64
+
+	//load start file number
+	LoadFileStartNum int
+
+	//load end file number
+	LoadFileEndNum int
+
+	//is backup Database
+	BackUP bool
 }
 
 var defaultSegmentSize int64 = 256 * 1024 * 1024
@@ -73,6 +82,9 @@ var DefaultOptions = func() Options {
 		RWMode:               FileIO,
 		SyncEnable:           true,
 		StartFileLoadingMode: MMap,
+		LoadFileStartNum:     -1,
+		LoadFileEndNum:       -1,
+		BackUP:               false,
 	}
 }()
 

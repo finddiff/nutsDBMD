@@ -15,8 +15,8 @@
 package inmemory
 
 import (
-	"github.com/xujiajun/nutsdb"
-	"github.com/xujiajun/nutsdb/ds/list"
+	nutsdb "github.com/finddiff/nutsDBMD"
+	"github.com/finddiff/nutsDBMD/ds/list"
 )
 
 // RPop removes and returns the last element of the list stored in the bucket at given bucket and key.

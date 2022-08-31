@@ -17,10 +17,10 @@ package inmemory
 import (
 	"bytes"
 	"fmt"
+	nutsdb "github.com/finddiff/nutsDBMD"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/xujiajun/nutsdb"
 )
 
 func initTestDB() {

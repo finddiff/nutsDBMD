@@ -15,9 +15,8 @@
 package inmemory
 
 import (
+	nutsdb "github.com/finddiff/nutsDBMD"
 	"time"
-
-	"github.com/xujiajun/nutsdb"
 )
 
 func (db *DB) Get(bucket string, key []byte) (*nutsdb.Entry, error) {

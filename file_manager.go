@@ -1,5 +1,9 @@
 package nutsDBMD
 
+import (
+	"github.com/xujiajun/mmap-go"
+)
+
 // fileManager holds the fd cache and file-related operations go through the manager to obtain the file processing object
 type fileManager struct {
 	rwMode RWMode
