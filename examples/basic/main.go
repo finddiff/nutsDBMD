@@ -28,6 +28,9 @@ func init() {
 			}
 		}
 	}
+
+	fileDir = "D:\\user\\weiyc\\document\\GO\\src\\nutshttp\\examples\\nutsdb"
+
 	db, _ = nutsdb.Open(
 		nutsdb.DefaultOptions,
 		nutsdb.WithDir(fileDir),
@@ -56,8 +59,7 @@ func main() {
 	// update
 	put2()
 	// read
-	read()
-	put()
+	read2()
 
 	readall()
 }
@@ -99,17 +101,34 @@ func put() {
 func put2() {
 	if err := db.Update(
 		func(tx *nutsdb.Tx) error {
-			key := []byte("name1")
+			key := []byte("name2")
 			val := []byte("val2")
 			return tx.Put(bucket, key, val, 0)
 		}); err != nil {
 		log.Fatal(err)
 	}
 }
+
 func read() {
 	if err := db.View(
 		func(tx *nutsdb.Tx) error {
 			key := []byte("name1")
+			e, err := tx.Get(bucket, key)
+			if err != nil {
+				return err
+			}
+			fmt.Println("val:", string(e.Value))
+
+			return nil
+		}); err != nil {
+		log.Println(err)
+	}
+}
+
+func read2() {
+	if err := db.View(
+		func(tx *nutsdb.Tx) error {
+			key := []byte("name2")
 			e, err := tx.Get(bucket, key)
 			if err != nil {
 				return err
