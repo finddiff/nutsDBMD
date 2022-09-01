@@ -16,7 +16,6 @@ package nutsDBMD
 
 import (
 	"bytes"
-	"github.com/google/btree"
 	"time"
 )
 
@@ -25,6 +24,8 @@ type Record struct {
 	H *Hint
 	E *Entry
 }
+
+type RecordItem *Record
 
 // IsExpired returns the record if expired or not.
 func (r *Record) IsExpired() bool {
@@ -49,6 +50,6 @@ func (r *Record) UpdateRecord(h *Hint, e *Entry) error {
 	return nil
 }
 
-func (r *Record) Less(than btree.Item) bool {
-	return bytes.Compare(r.H.Key, than.(*Record).H.Key) == -1
+func (r *Record) Less(than *Record) bool {
+	return bytes.Compare(r.H.Key, than.H.Key) == -1
 }

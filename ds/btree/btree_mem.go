@@ -25,7 +25,7 @@ import (
 	"runtime"
 	"time"
 
-	btree "github.com/google/btree/v2"
+	btree "github.com/finddiff/nutsDBMD/ds/btree"
 	"github.com/petar/GoLLRB/llrb"
 )
 

@@ -28,10 +28,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/finddiff/nutsDBMD/ds/btree"
 	"github.com/finddiff/nutsDBMD/ds/list"
 	"github.com/finddiff/nutsDBMD/ds/set"
 	"github.com/finddiff/nutsDBMD/ds/zset"
-	"github.com/google/btree"
 	"github.com/xujiajun/utils/filesystem"
 	"github.com/xujiajun/utils/strconv2"
 )
@@ -174,7 +174,7 @@ type (
 	BPTreeIdx map[string]*BPTree
 
 	// BPTreeIdx represents the B tree index
-	BTreeIdx map[string]*btree.BTree
+	BTreeIdx map[string]*btree.BTree[*Record]
 
 	// SetIdx represents the set index
 	SetIdx map[string]*set.Set
@@ -630,11 +630,11 @@ func (db *DB) buildBPTreeRootIdxes(dataFileIds []int) error {
 func (db *DB) buildBPTreeIdx(bucket string, r *Record) error {
 	if db.opt.BTree {
 		if _, ok := db.BTreeIdx[bucket]; !ok {
-			db.BTreeIdx[bucket] = btree.New(3)
+			db.BTreeIdx[bucket] = btree.New[*Record](32)
 		}
 
 		if r.H.Meta.Flag == DataDeleteFlag {
-			if item := db.BTreeIdx[bucket].Get(r); item != nil {
+			if item, _ := db.BTreeIdx[bucket].Get(r); item != nil {
 				db.BTreeIdx[bucket].Delete(r)
 			}
 		} else {
@@ -1007,7 +1007,7 @@ func (db *DB) getPendingMergeEntries(entry *Entry, pendingMergeEntries []*Entry)
 		if db.opt.BTree {
 			ptIdx, exist := db.BTreeIdx[string(entry.Meta.Bucket)]
 			if exist {
-				item := ptIdx.Get(&Record{H: &Hint{Key: entry.Key}})
+				item, _ := ptIdx.Get(&Record{H: &Hint{Key: entry.Key}})
 				if item != nil {
 					pendingMergeEntries = append(pendingMergeEntries, entry)
 				}
@@ -1123,7 +1123,8 @@ func (db *DB) getRecordFromKey(bucket, key []byte) (record *Record, err error) {
 		if !ok {
 			return nil, ErrBucketNotFound
 		}
-		return idx.Get(&Record{H: &Hint{Key: key}}).(*Record), nil
+		record, _ = idx.Get(&Record{H: &Hint{Key: key}})
+		return
 	} else {
 		idx, ok := db.BPTreeIdx[string(bucket)]
 		if !ok {

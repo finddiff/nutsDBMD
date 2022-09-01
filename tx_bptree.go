@@ -17,7 +17,6 @@ package nutsDBMD
 import (
 	"bytes"
 	"fmt"
-	"github.com/google/btree"
 	"regexp"
 	"time"
 
@@ -144,7 +143,7 @@ func (tx *Tx) Get(bucket string, key []byte) (e *Entry, err error) {
 			err = nil
 			e = nil
 			if idx, ok := tx.db.BTreeIdx[bucket]; ok {
-				r := idx.Get(&Record{H: &Hint{Key: key}}).(*Record)
+				r, _ := idx.Get(&Record{H: &Hint{Key: key}})
 				if r != nil {
 					if idxMode == HintKeyAndRAMIdxMode {
 						path := tx.db.getDataPath(r.H.FileID)
@@ -230,11 +229,11 @@ func (tx *Tx) GetAll(bucket string) (entries Entries, err error) {
 	if idxMode == HintKeyValAndRAMIdxMode || idxMode == HintKeyAndRAMIdxMode {
 		if tx.db.opt.BTree {
 			if idx, ok := tx.db.BTreeIdx[bucket]; ok {
-				idx.Ascend(func(item btree.Item) bool {
+				idx.Ascend(func(item *Record) bool {
 					if item == nil {
 						return false
 					}
-					entries = append(entries, item.(*Record).E)
+					entries = append(entries, item.E)
 					return true
 				})
 			}
@@ -269,11 +268,11 @@ func (tx *Tx) RangeScan(bucket string, start, end []byte) (es Entries, err error
 	if tx.db.opt.BTree {
 		es = nil
 		if idx, ok := tx.db.BTreeIdx[bucket]; ok {
-			idx.AscendRange(&Record{H: &Hint{Key: start}}, &Record{H: &Hint{Key: end}}, func(item btree.Item) bool {
+			idx.AscendRange(&Record{H: &Hint{Key: start}}, &Record{H: &Hint{Key: end}}, func(item *Record) bool {
 				if item == nil {
 					return false
 				}
-				es = append(es, item.(*Record).E)
+				es = append(es, item.E)
 				return true
 			})
 		}
@@ -812,7 +811,7 @@ func (tx *Tx) PrefixScan(bucket string, prefix []byte, offsetNum int, limitNum i
 		es = nil
 		countOff := 0
 		if idx, ok := tx.db.BTreeIdx[bucket]; ok {
-			idx.AscendGreaterOrEqual(&Record{H: &Hint{Key: prefix}}, func(item btree.Item) bool {
+			idx.AscendGreaterOrEqual(&Record{H: &Hint{Key: prefix}}, func(item *Record) bool {
 				countOff++
 				if item == nil {
 					return false
@@ -821,7 +820,7 @@ func (tx *Tx) PrefixScan(bucket string, prefix []byte, offsetNum int, limitNum i
 				if countOff < offsetNum {
 					return true
 				}
-				es = append(es, item.(*Record).E)
+				es = append(es, item.E)
 				return true
 			})
 		}
@@ -868,20 +867,20 @@ func (tx *Tx) PrefixSearchScan(bucket string, prefix []byte, reg string, offsetN
 			if err != nil {
 				return nil, off, ErrBadRegexp
 			}
-			idx.AscendGreaterOrEqual(&Record{H: &Hint{Key: prefix}}, func(item btree.Item) bool {
+			idx.AscendGreaterOrEqual(&Record{H: &Hint{Key: prefix}}, func(item *Record) bool {
 				countOff++
 				if item == nil {
 					return false
 				}
 
-				if !rgx.Match(item.(*Record).E.Key) {
+				if !rgx.Match(item.E.Key) {
 					return true
 				}
 
 				if countOff < offsetNum {
 					return true
 				}
-				es = append(es, item.(*Record).E)
+				es = append(es, item.E)
 				return true
 			})
 		}

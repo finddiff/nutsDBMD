@@ -88,7 +88,7 @@ var DefaultOptions = func() Options {
 		LoadFileStartNum:     -1,
 		LoadFileEndNum:       -1,
 		BackUP:               false,
-		BTree:                false,
+		BTree:                true,
 	}
 }()
 
