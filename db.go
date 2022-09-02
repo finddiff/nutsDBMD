@@ -630,10 +630,10 @@ func (db *DB) buildBPTreeRootIdxes(dataFileIds []int) error {
 func (db *DB) buildBPTreeIdx(bucket string, r *Record) error {
 	if db.opt.BTree {
 		if _, ok := db.BTreeIdx[bucket]; !ok {
-			db.BTreeIdx[bucket] = btree.New[*Record](32)
+			db.BTreeIdx[bucket] = btree.New[*Record](128)
 		}
 
-		if r.H.Meta.Flag == DataDeleteFlag {
+		if r.H.Meta.Flag == DataDeleteFlag || r.IsExpired() {
 			if item, _ := db.BTreeIdx[bucket].Get(r); item != nil {
 				db.BTreeIdx[bucket].Delete(r)
 			}
