@@ -28,7 +28,7 @@ func init() {
 		}
 	}
 
-	//fileDir = "D:\\user\\weiyc\\document\\GO\\src\\nutshttp\\examples\\nutsdb"
+	fileDir = "D:\\user\\weiyc\\document\\GO\\src\\nutshttp\\examples\\nutsdb"
 
 	db, _ = nutsdb.Open(
 		nutsdb.DefaultOptions,
