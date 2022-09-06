@@ -14,8 +14,8 @@ func TestInsertNilRoot(t *testing.T) {
 	tree := NewTree()
 	hello()
 
-	key := 1
-	value := []byte("test")
+	key := []byte("test-key1")
+	value := []byte("test-value")
 
 	err := tree.Insert(key, value)
 
@@ -32,15 +32,15 @@ func TestInsertNilRoot(t *testing.T) {
 		t.Errorf("returned nil \n")
 	}
 
-	if !reflect.DeepEqual(r.Value, value) {
-		t.Errorf("expected %v and got %v \n", value, r.Value)
+	if !reflect.DeepEqual(r.(*RecordItem).Value, value) {
+		t.Errorf("expected %v and got %v \n", value, r)
 	}
 }
 
 func TestInsert(t *testing.T) {
 	tree := NewTree()
 
-	key := 1
+	key := []byte("test-key1")
 	value := []byte("test")
 
 	err := tree.Insert(key, value)
@@ -57,15 +57,15 @@ func TestInsert(t *testing.T) {
 		t.Errorf("returned nil \n")
 	}
 
-	if !reflect.DeepEqual(r.Value, value) {
-		t.Errorf("expected %v and got %v \n", value, r.Value)
+	if !reflect.DeepEqual(r.(*RecordItem).Value, value) {
+		t.Errorf("expected %v and got %v \n", value, r.(*RecordItem).Value)
 	}
 }
 
 func TestInsertSameKeyTwice(t *testing.T) {
 	tree := NewTree()
 
-	key := 1
+	key := []byte("test-key1")
 	value := []byte("test")
 
 	err := tree.Insert(key, value)
@@ -87,8 +87,8 @@ func TestInsertSameKeyTwice(t *testing.T) {
 		t.Errorf("returned nil \n")
 	}
 
-	if !reflect.DeepEqual(r.Value, value) {
-		t.Errorf("expected %v and got %v \n", value, r.Value)
+	if !reflect.DeepEqual(r.(*RecordItem).Value, value) {
+		t.Errorf("expected %v and got %v \n", value, r.(*RecordItem).Value)
 	}
 
 	if tree.Root.NumKeys > 1 {
@@ -99,14 +99,14 @@ func TestInsertSameKeyTwice(t *testing.T) {
 func TestInsertSameValueTwice(t *testing.T) {
 	tree := NewTree()
 
-	key := 1
+	key := []byte("test-key1")
 	value := []byte("test")
 
 	err := tree.Insert(key, value)
 	if err != nil {
 		t.Errorf("%s", err)
 	}
-	err = tree.Insert(key+1, value)
+	err = tree.Insert([]byte("test-key2"), value)
 	if err != nil {
 		t.Errorf("%s", err)
 	}
@@ -120,8 +120,8 @@ func TestInsertSameValueTwice(t *testing.T) {
 		t.Errorf("returned nil \n")
 	}
 
-	if !reflect.DeepEqual(r.Value, value) {
-		t.Errorf("expected %v and got %v \n", value, r.Value)
+	if !reflect.DeepEqual(r.(*RecordItem).Value, value) {
+		t.Errorf("expected %v and got %v \n", value, r.(*RecordItem).Value)
 	}
 
 	if tree.Root.NumKeys <= 1 {
@@ -132,20 +132,20 @@ func TestInsertSameValueTwice(t *testing.T) {
 func TestFindNilRoot(t *testing.T) {
 	tree := NewTree()
 
-	r, err := tree.Find(1, false)
+	r, err := tree.Find([]byte("test-key"), false)
 	if err == nil {
 		t.Errorf("expected error and got nil")
 	}
 
 	if r != nil {
-		t.Errorf("expected nil got %s \n", r)
+		t.Errorf("expected nil got %v \n", r)
 	}
 }
 
 func TestFind(t *testing.T) {
 	tree := NewTree()
 
-	key := 1
+	key := []byte("test-key1")
 	value := []byte("test")
 
 	err := tree.Insert(key, value)
@@ -162,15 +162,15 @@ func TestFind(t *testing.T) {
 		t.Errorf("returned nil \n")
 	}
 
-	if !reflect.DeepEqual(r.Value, value) {
-		t.Errorf("expected %v and got %v \n", value, r.Value)
+	if !reflect.DeepEqual(r.(*RecordItem).Value, value) {
+		t.Errorf("expected %v and got %v \n", value, r.(*RecordItem).Value)
 	}
 }
 
 func TestDeleteNilTree(t *testing.T) {
 	tree := NewTree()
 
-	key := 1
+	key := []byte("test-key1")
 
 	err := tree.Delete(key)
 	if err == nil {
@@ -190,7 +190,7 @@ func TestDeleteNilTree(t *testing.T) {
 func TestDelete(t *testing.T) {
 	tree := NewTree()
 
-	key := 1
+	key := []byte("test-key1")
 	value := []byte("test")
 
 	err := tree.Insert(key, value)
@@ -207,8 +207,8 @@ func TestDelete(t *testing.T) {
 		t.Errorf("returned nil \n")
 	}
 
-	if !reflect.DeepEqual(r.Value, value) {
-		t.Errorf("expected %v and got %v \n", value, r.Value)
+	if !reflect.DeepEqual(r.(*RecordItem).Value, value) {
+		t.Errorf("expected %v and got %v \n", value, r.(*RecordItem).Value)
 	}
 
 	err = tree.Delete(key)
@@ -229,7 +229,7 @@ func TestDelete(t *testing.T) {
 func TestDeleteNotFound(t *testing.T) {
 	tree := NewTree()
 
-	key := 1
+	key := []byte("test-key1")
 	value := []byte("test")
 
 	err := tree.Insert(key, value)
@@ -246,16 +246,16 @@ func TestDeleteNotFound(t *testing.T) {
 		t.Errorf("returned nil \n")
 	}
 
-	if !reflect.DeepEqual(r.Value, value) {
-		t.Errorf("expected %v and got %v \n", value, r.Value)
+	if !reflect.DeepEqual(r.(*RecordItem).Value, value) {
+		t.Errorf("expected %v and got %v \n", value, r.(*RecordItem).Value)
 	}
 
-	err = tree.Delete(key + 1)
+	err = tree.Delete([]byte("test-key2"))
 	if err == nil {
 		t.Errorf("expected error and got nil")
 	}
 
-	r, err = tree.Find(key+1, false)
+	r, err = tree.Find([]byte("test-key2"), false)
 	if err == nil {
 		t.Errorf("expected error and got nil")
 	}
@@ -264,26 +264,26 @@ func TestDeleteNotFound(t *testing.T) {
 func TestMultiInsertSingleDelete(t *testing.T) {
 	tree := NewTree()
 
-	key := 1
+	key := []byte("test-key1")
 	value := []byte("test")
 
 	err := tree.Insert(key, value)
 	if err != nil {
 		t.Errorf("%s", err)
 	}
-	err = tree.Insert(key+1, append(value, []byte("world1")...))
+	err = tree.Insert([]byte("test-key2"), append(value, []byte("world1")...))
 	if err != nil {
 		t.Errorf("%s", err)
 	}
-	err = tree.Insert(key+2, append(value, []byte("world2")...))
+	err = tree.Insert([]byte("test-key3"), append(value, []byte("world2")...))
 	if err != nil {
 		t.Errorf("%s", err)
 	}
-	err = tree.Insert(key+3, append(value, []byte("world3")...))
+	err = tree.Insert([]byte("test-key4"), append(value, []byte("world3")...))
 	if err != nil {
 		t.Errorf("%s", err)
 	}
-	err = tree.Insert(key+4, append(value, []byte("world4")...))
+	err = tree.Insert([]byte("test-key5"), append(value, []byte("world4")...))
 	if err != nil {
 		t.Errorf("%s", err)
 	}
@@ -297,8 +297,8 @@ func TestMultiInsertSingleDelete(t *testing.T) {
 		t.Errorf("returned nil \n")
 	}
 
-	if !reflect.DeepEqual(r.Value, value) {
-		t.Errorf("expected %v and got %v \n", value, r.Value)
+	if !reflect.DeepEqual(r.(*RecordItem).Value, value) {
+		t.Errorf("expected %v and got %v \n", value, r.(*RecordItem).Value)
 	}
 
 	err = tree.Delete(key)
@@ -319,26 +319,26 @@ func TestMultiInsertSingleDelete(t *testing.T) {
 func TestMultiInsertMultiDelete(t *testing.T) {
 	tree := NewTree()
 
-	key := 1
+	key := []byte("test-key1")
 	value := []byte("test")
 
 	err := tree.Insert(key, value)
 	if err != nil {
 		t.Errorf("%s", err)
 	}
-	err = tree.Insert(key+1, append(value, []byte("world1")...))
+	err = tree.Insert([]byte("test-key2"), append(value, []byte("world1")...))
 	if err != nil {
 		t.Errorf("%s", err)
 	}
-	err = tree.Insert(key+2, append(value, []byte("world2")...))
+	err = tree.Insert([]byte("test-key3"), append(value, []byte("world2")...))
 	if err != nil {
 		t.Errorf("%s", err)
 	}
-	err = tree.Insert(key+3, append(value, []byte("world3")...))
+	err = tree.Insert([]byte("test-key4"), append(value, []byte("world3")...))
 	if err != nil {
 		t.Errorf("%s", err)
 	}
-	err = tree.Insert(key+4, append(value, []byte("world4")...))
+	err = tree.Insert([]byte("test-key5"), append(value, []byte("world4")...))
 	if err != nil {
 		t.Errorf("%s", err)
 	}
@@ -352,8 +352,8 @@ func TestMultiInsertMultiDelete(t *testing.T) {
 		t.Errorf("returned nil \n")
 	}
 
-	if !reflect.DeepEqual(r.Value, value) {
-		t.Errorf("expected %v and got %v \n", value, r.Value)
+	if !reflect.DeepEqual(r.(*RecordItem).Value, value) {
+		t.Errorf("expected %v and got %v \n", value, r.(*RecordItem).Value)
 	}
 
 	err = tree.Delete(key)
@@ -370,7 +370,7 @@ func TestMultiInsertMultiDelete(t *testing.T) {
 		t.Errorf("returned struct after delete - %v \n", r)
 	}
 
-	r, err = tree.Find(key+3, false)
+	r, err = tree.Find([]byte("test-key4"), false)
 	if err != nil {
 		t.Errorf("%s\n", err)
 	}
@@ -379,16 +379,16 @@ func TestMultiInsertMultiDelete(t *testing.T) {
 		t.Errorf("returned nil \n")
 	}
 
-	if !reflect.DeepEqual(r.Value, append(value, []byte("world3")...)) {
-		t.Errorf("expected %v and got %v \n", value, r.Value)
+	if !reflect.DeepEqual(r.(*RecordItem).Value, append(value, []byte("world3")...)) {
+		t.Errorf("expected %v and got %v \n", value, r.(*RecordItem).Value)
 	}
 
-	err = tree.Delete(key + 3)
+	err = tree.Delete([]byte("test-key4"))
 	if err != nil {
 		t.Errorf("%s\n", err)
 	}
 
-	r, err = tree.Find(key+3, false)
+	r, err = tree.Find([]byte("test-key4"), false)
 	if err == nil {
 		t.Errorf("expected error and got nil")
 	}

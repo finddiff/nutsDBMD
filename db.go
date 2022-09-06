@@ -28,7 +28,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/finddiff/nutsDBMD/ds/btree"
+	"github.com/finddiff/nutsDBMD/ds/bptree"
 	"github.com/finddiff/nutsDBMD/ds/list"
 	"github.com/finddiff/nutsDBMD/ds/set"
 	"github.com/finddiff/nutsDBMD/ds/zset"
@@ -149,32 +149,36 @@ const (
 type (
 	// DB represents a collection of buckets that persist on disk.
 	DB struct {
-		opt                     Options   // the database options
-		BPTreeIdx               BPTreeIdx // Hint Index
-		BTreeIdx                BTreeIdx  // Btree Hint
-		BPTreeRootIdxes         []*BPTreeRootIdx
-		BPTreeKeyEntryPosMap    map[string]int64 // key = bucket+key  val = EntryPos
-		bucketMetas             BucketMetasIdx
-		SetIdx                  SetIdx
-		SortedSetIdx            SortedSetIdx
-		ListIdx                 ListIdx
-		ActiveFile              *DataFile
-		ActiveBPTreeIdx         *BPTree
-		ActiveCommittedTxIdsIdx *BPTree
-		committedTxIds          map[uint64]struct{}
-		MaxFileID               int64
-		mu                      sync.RWMutex
-		KeyCount                int // total key number ,include expired, deleted, repeated.
-		closed                  bool
-		isMerging               bool
-		fm                      *fileManager
+		opt       Options   // the database options
+		BPTreeIdx BPTreeIdx // Hint Index
+		//BTreeIdx                BTreeIdx  // Btree Hint
+		//BptreeIdx               BptreeIdx
+		//BPTreeRootIdxes         []*BPTreeRootIdx
+		BPTreeKeyEntryPosMap map[string]int64 // key = bucket+key  val = EntryPos
+		bucketMetas          BucketMetasIdx
+		SetIdx               SetIdx
+		SortedSetIdx         SortedSetIdx
+		ListIdx              ListIdx
+		ActiveFile           *DataFile
+		//ActiveBPTreeIdx         *BPTree
+		//ActiveCommittedTxIdsIdx *BPTree
+		committedTxIds map[uint64]struct{}
+		MaxFileID      int64
+		mu             sync.RWMutex
+		KeyCount       int // total key number ,include expired, deleted, repeated.
+		closed         bool
+		isMerging      bool
+		fm             *fileManager
 	}
 
 	// BPTreeIdx represents the B+ tree index
-	BPTreeIdx map[string]*BPTree
+	//BPTreeIdx map[string]*BPTree
+	BPTreeIdx map[string]*bptree.Tree
 
 	// BPTreeIdx represents the B tree index
-	BTreeIdx map[string]*btree.BTree[*Record]
+	//BTreeIdx map[string]*btree.BTree[*Record]
+
+	//BptreeIdx map[string]*bptree.Tree
 
 	// SetIdx represents the set index
 	SetIdx map[string]*set.Set
@@ -195,21 +199,22 @@ type (
 // open returns a newly initialized DB object.
 func open(opt Options) (*DB, error) {
 	db := &DB{
-		BPTreeIdx:               make(BPTreeIdx),
-		BTreeIdx:                make(BTreeIdx),
-		SetIdx:                  make(SetIdx),
-		SortedSetIdx:            make(SortedSetIdx),
-		ListIdx:                 make(ListIdx),
-		ActiveBPTreeIdx:         NewTree(),
-		MaxFileID:               0,
-		opt:                     opt,
-		KeyCount:                0,
-		closed:                  false,
-		committedTxIds:          make(map[uint64]struct{}),
-		BPTreeKeyEntryPosMap:    make(map[string]int64),
-		bucketMetas:             make(map[string]*BucketMeta),
-		ActiveCommittedTxIdsIdx: NewTree(),
-		fm:                      newFileManager(opt.RWMode, opt.MaxFdNumsInCache, opt.CleanFdsCacheThreshold),
+		BPTreeIdx: make(BPTreeIdx),
+		//BTreeIdx:     make(BTreeIdx),
+		//BptreeIdx:    make(BptreeIdx),
+		SetIdx:       make(SetIdx),
+		SortedSetIdx: make(SortedSetIdx),
+		ListIdx:      make(ListIdx),
+		//ActiveBPTreeIdx:         NewTree(),
+		MaxFileID:            0,
+		opt:                  opt,
+		KeyCount:             0,
+		closed:               false,
+		committedTxIds:       make(map[uint64]struct{}),
+		BPTreeKeyEntryPosMap: make(map[string]int64),
+		bucketMetas:          make(map[string]*BucketMeta),
+		//ActiveCommittedTxIdsIdx: NewTree(),
+		fm: newFileManager(opt.RWMode, opt.MaxFdNumsInCache, opt.CleanFdsCacheThreshold),
 	}
 
 	if ok := filesystem.PathIsExist(db.opt.Dir); !ok {
@@ -436,7 +441,7 @@ func (db *DB) Close() error {
 
 	db.BPTreeIdx = nil
 
-	db.BTreeIdx = nil
+	//db.BTreeIdx = nil
 
 	err = db.fm.close()
 
@@ -553,8 +558,8 @@ func (db *DB) parseDataFiles(dataFileIds []int) (unconfirmedRecords []*Record, e
 
 			if entry.Meta.Status == Committed {
 				db.committedTxIds[entry.Meta.TxID] = struct{}{}
-				db.ActiveCommittedTxIdsIdx.Insert([]byte(strconv2.Int64ToStr(int64(entry.Meta.TxID))), nil,
-					&Hint{Meta: &MetaData{Flag: DataSetFlag}}, CountFlagEnabled)
+				//db.ActiveCommittedTxIdsIdx.Insert([]byte(strconv2.Int64ToStr(int64(entry.Meta.TxID))), nil,
+				//	&Hint{Meta: &MetaData{Flag: DataSetFlag}}, CountFlagEnabled)
 
 				if _, ok := unconfirmedRecordsMap[r.H.Meta.TxID]; ok {
 					recoders := unconfirmedRecordsMap[r.H.Meta.TxID]
@@ -586,85 +591,104 @@ func (db *DB) parseDataFiles(dataFileIds []int) (unconfirmedRecords []*Record, e
 	return
 }
 
-func (db *DB) buildBPTreeRootIdxes(dataFileIds []int) error {
-	var off int64
-
-	dataFileIdsSize := len(dataFileIds)
-
-	if dataFileIdsSize == 1 {
-		return nil
-	}
-
-	for i := 0; i < len(dataFileIds[0:dataFileIdsSize-1]); i++ {
-		off = 0
-		path := db.getBPTRootPath(int64(dataFileIds[i]))
-		fd, err := os.OpenFile(filepath.Clean(path), os.O_CREATE|os.O_RDWR, 0644)
-		if err != nil {
-			return err
-		}
-
-		for {
-			bs, err := ReadBPTreeRootIdxAt(fd, off)
-			if err == io.EOF || err == nil && bs == nil {
-				break
-			}
-			if err != nil {
-				return err
-			}
-
-			if err == nil && bs != nil {
-				db.BPTreeRootIdxes = append(db.BPTreeRootIdxes, bs)
-				off += bs.Size()
-			}
-
-		}
-
-		fd.Close()
-	}
-
-	db.committedTxIds = nil
-
-	return nil
-}
+//func (db *DB) buildBPTreeRootIdxes(dataFileIds []int) error {
+//	var off int64
+//
+//	dataFileIdsSize := len(dataFileIds)
+//
+//	if dataFileIdsSize == 1 {
+//		return nil
+//	}
+//
+//	for i := 0; i < len(dataFileIds[0:dataFileIdsSize-1]); i++ {
+//		off = 0
+//		path := db.getBPTRootPath(int64(dataFileIds[i]))
+//		fd, err := os.OpenFile(filepath.Clean(path), os.O_CREATE|os.O_RDWR, 0644)
+//		if err != nil {
+//			return err
+//		}
+//
+//		for {
+//			bs, err := ReadBPTreeRootIdxAt(fd, off)
+//			if err == io.EOF || err == nil && bs == nil {
+//				break
+//			}
+//			if err != nil {
+//				return err
+//			}
+//
+//			if err == nil && bs != nil {
+//				db.BPTreeRootIdxes = append(db.BPTreeRootIdxes, bs)
+//				off += bs.Size()
+//			}
+//
+//		}
+//
+//		fd.Close()
+//	}
+//
+//	db.committedTxIds = nil
+//
+//	return nil
+//}
 
 func (db *DB) buildBPTreeIdx(bucket string, r *Record) error {
-	if db.opt.BTree {
-		if _, ok := db.BTreeIdx[bucket]; !ok {
-			db.BTreeIdx[bucket] = btree.New[*Record](128)
-		}
-
-		if r.H.Meta.Flag == DataDeleteFlag || r.IsExpired() {
-			if item, _ := db.BTreeIdx[bucket].Get(r); item != nil {
-				db.BTreeIdx[bucket].Delete(r)
-			}
-		} else {
-			db.BTreeIdx[bucket].ReplaceOrInsert(r)
-		}
-
-		return nil
-	}
+	//if db.opt.BTree {
+	//	//if _, ok := db.BTreeIdx[bucket]; !ok {
+	//	//	db.BTreeIdx[bucket] = btree.New[*Record](128)
+	//	//}
+	//	//
+	//	//if r.H.Meta.Flag == DataDeleteFlag || r.IsExpired() {
+	//	//	if item, _ := db.BTreeIdx[bucket].Get(r); item != nil {
+	//	//		db.BTreeIdx[bucket].Delete(r)
+	//	//	}
+	//	//} else {
+	//	//	db.BTreeIdx[bucket].ReplaceOrInsert(r)
+	//	//}
+	//	//
+	//	//return nil
+	//
+	//	if _, ok := db.BptreeIdx[bucket]; !ok {
+	//		db.BptreeIdx[bucket] = bptree.NewTree()
+	//	}
+	//
+	//	if r.H.Meta.Flag == DataDeleteFlag || r.IsExpired() {
+	//		if item, _ := db.BptreeIdx[bucket].Find(r.H.Key, false); item != nil {
+	//			db.BptreeIdx[bucket].Delete(r.H.Key)
+	//		}
+	//	} else {
+	//		db.BptreeIdx[bucket].InsertOrUpdate(r.H.Key, r)
+	//	}
+	//
+	//	return nil
+	//}
 
 	if _, ok := db.BPTreeIdx[bucket]; !ok {
-		db.BPTreeIdx[bucket] = NewTree()
+		//db.BPTreeIdx[bucket] = NewTree()
+		db.BPTreeIdx[bucket] = bptree.NewTree()
 	}
 
-	if err := db.BPTreeIdx[bucket].Insert(r.H.Key, r.E, r.H, CountFlagEnabled); err != nil {
+	if err := db.BPTreeIdx[bucket].InsertOrUpdate(r.H.Key, r); err != nil {
 		return fmt.Errorf("when build BPTreeIdx insert index err: %s", err)
 	}
+
+	//if err := db.BPTreeIdx[bucket].Insert(r.H.Key, r.E, r.H, CountFlagEnabled); err != nil {
+	//	return fmt.Errorf("when build BPTreeIdx insert index err: %s", err)
+	//}
 
 	return nil
 }
 
-func (db *DB) buildActiveBPTreeIdx(r *Record) error {
-	newKey := r.H.Meta.Bucket
-	newKey = append(newKey, r.H.Key...)
-
-	if err := db.ActiveBPTreeIdx.Insert(newKey, r.E, r.H, CountFlagEnabled); err != nil {
-		return fmt.Errorf("when build BPTreeIdx insert index err: %s", err)
-	}
-
-	return nil
-}
+//func (db *DB) buildActiveBPTreeIdx(r *Record) error {
+//	newKey := r.H.Meta.Bucket
+//	newKey = append(newKey, r.H.Key...)
+//
+//	if err := db.ActiveBPTreeIdx.Insert(newKey, r.E, r.H, CountFlagEnabled); err != nil {
+//		return fmt.Errorf("when build BPTreeIdx insert index err: %s", err)
+//	}
+//
+//	return nil
+//}
 
 func (db *DB) buildBucketMetaIdx() error {
 
@@ -760,7 +784,7 @@ func (db *DB) deleteBucket(ds uint16, bucket string) {
 	}
 	if ds == DataStructureBPTree {
 		if db.opt.BTree {
-			delete(db.BTreeIdx, bucket)
+			//delete(db.BTreeIdx, bucket)
 		} else {
 			delete(db.BPTreeIdx, bucket)
 		}
@@ -982,45 +1006,45 @@ func (db *DB) getBPTDir() string {
 	return db.opt.Dir + separator + bptDir
 }
 
-func (db *DB) getBPTPath(fID int64) string {
-	separator := string(filepath.Separator)
-	return db.getBPTDir() + separator + strconv2.Int64ToStr(fID) + BPTIndexSuffix
-}
-
-func (db *DB) getBPTRootPath(fID int64) string {
-	separator := string(filepath.Separator)
-	return db.getBPTDir() + separator + "root" + separator + strconv2.Int64ToStr(fID) + BPTRootIndexSuffix
-}
-
-func (db *DB) getBPTTxIDPath(fID int64) string {
-	separator := string(filepath.Separator)
-	return db.getBPTDir() + separator + "txid" + separator + strconv2.Int64ToStr(fID) + BPTTxIDIndexSuffix
-}
-
-func (db *DB) getBPTRootTxIDPath(fID int64) string {
-	separator := string(filepath.Separator)
-	return db.getBPTDir() + separator + "txid" + separator + strconv2.Int64ToStr(fID) + BPTRootTxIDIndexSuffix
-}
+//func (db *DB) getBPTPath(fID int64) string {
+//	separator := string(filepath.Separator)
+//	return db.getBPTDir() + separator + strconv2.Int64ToStr(fID) + BPTIndexSuffix
+//}
+//
+//func (db *DB) getBPTRootPath(fID int64) string {
+//	separator := string(filepath.Separator)
+//	return db.getBPTDir() + separator + "root" + separator + strconv2.Int64ToStr(fID) + BPTRootIndexSuffix
+//}
+//
+//func (db *DB) getBPTTxIDPath(fID int64) string {
+//	separator := string(filepath.Separator)
+//	return db.getBPTDir() + separator + "txid" + separator + strconv2.Int64ToStr(fID) + BPTTxIDIndexSuffix
+//}
+//
+//func (db *DB) getBPTRootTxIDPath(fID int64) string {
+//	separator := string(filepath.Separator)
+//	return db.getBPTDir() + separator + "txid" + separator + strconv2.Int64ToStr(fID) + BPTRootTxIDIndexSuffix
+//}
 
 func (db *DB) getPendingMergeEntries(entry *Entry, pendingMergeEntries []*Entry) []*Entry {
 	if entry.Meta.Ds == DataStructureBPTree {
-		if db.opt.BTree {
-			ptIdx, exist := db.BTreeIdx[string(entry.Meta.Bucket)]
-			if exist {
-				item, _ := ptIdx.Get(&Record{H: &Hint{Key: entry.Key}})
-				if item != nil {
-					pendingMergeEntries = append(pendingMergeEntries, entry)
-				}
-			}
-		} else {
-			bptIdx, exist := db.BPTreeIdx[string(entry.Meta.Bucket)]
-			if exist {
-				r, err := bptIdx.Find(entry.Key)
-				if err == nil && r.H.Meta.Flag == DataSetFlag {
-					pendingMergeEntries = append(pendingMergeEntries, entry)
-				}
+		//if db.opt.BTree {
+		//	ptIdx, exist := db.BTreeIdx[string(entry.Meta.Bucket)]
+		//	if exist {
+		//		item, _ := ptIdx.Get(&Record{H: &Hint{Key: entry.Key}})
+		//		if item != nil {
+		//			pendingMergeEntries = append(pendingMergeEntries, entry)
+		//		}
+		//	}
+		//} else {
+		bptIdx, exist := db.BPTreeIdx[string(entry.Meta.Bucket)]
+		if exist {
+			r, err := bptIdx.Find(entry.Key, false)
+			if err == nil && r.(*Record).H.Meta.Flag == DataSetFlag {
+				pendingMergeEntries = append(pendingMergeEntries, entry)
 			}
 		}
+		//}
 	}
 
 	if entry.Meta.Ds == DataStructureSet {
@@ -1118,18 +1142,23 @@ func (db *DB) getRecordFromKey(bucket, key []byte) (record *Record, err error) {
 	if !(idxMode == HintKeyValAndRAMIdxMode || idxMode == HintKeyAndRAMIdxMode) {
 		return nil, errors.New("not implemented")
 	}
-	if db.opt.BTree {
-		idx, ok := db.BTreeIdx[string(bucket)]
-		if !ok {
-			return nil, ErrBucketNotFound
-		}
-		record, _ = idx.Get(&Record{H: &Hint{Key: key}})
-		return
-	} else {
-		idx, ok := db.BPTreeIdx[string(bucket)]
-		if !ok {
-			return nil, ErrBucketNotFound
-		}
-		return idx.Find(key)
+	//if db.opt.BTree {
+	//idx, ok := db.BTreeIdx[string(bucket)]
+	//if !ok {
+	//	return nil, ErrBucketNotFound
+	//}
+	//record, _ = idx.Get(&Record{H: &Hint{Key: key}})
+	//return
+	//} else {
+	idx, ok := db.BPTreeIdx[string(bucket)]
+	if !ok {
+		return nil, ErrBucketNotFound
 	}
+	r, err := idx.Find(key, false)
+	if err != nil {
+		return nil, err
+	}
+	record = r.(*Record)
+	return
+	//}
 }
