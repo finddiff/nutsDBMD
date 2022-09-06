@@ -571,6 +571,10 @@ func (db *DB) parseDataFiles(dataFileIds []int) (unconfirmedRecords []*Record, e
 					delete(unconfirmedRecordsMap, r.H.Meta.TxID)
 				}
 
+				if err := db.updateunconfirmedIndex(r); err != nil {
+					return nil, err
+				}
+
 			} else {
 				if _, ok := unconfirmedRecordsMap[r.H.Meta.TxID]; ok {
 					unconfirmedRecordsMap[r.H.Meta.TxID] = append(unconfirmedRecordsMap[r.H.Meta.TxID], r)

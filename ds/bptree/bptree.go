@@ -120,7 +120,7 @@ func (t *Tree) All() ([]interface{}, error) {
 	//append all leaf date
 	alllist := make([]interface{}, 0)
 	for {
-		alllist = append(alllist, start.Pointers[:start.NumKeys-1]...)
+		alllist = append(alllist, start.Pointers[:start.NumKeys]...)
 		if start.Next == nil {
 			break
 		}
@@ -157,7 +157,7 @@ func (t *Tree) Range(start []byte, end []byte) ([]interface{}, error) {
 	// add end leaf node to list
 	for i := 0; i < startLeaf.NumKeys; i++ {
 		if bytes.Equal(startLeaf.Keys[i], end) {
-			rangeList = append(rangeList, startLeaf.Pointers[:i])
+			rangeList = append(rangeList, startLeaf.Pointers[:i+1])
 		}
 	}
 
@@ -715,6 +715,7 @@ func (t *Tree) insertIntoNodeAfterSplitting(old_node *Node, left_index int, key 
 		child, _ = new_node.Pointers[i].(*Node)
 		child.Parent = new_node
 	}
+	old_node.Next = new_node
 
 	return t.insertIntoParent(old_node, k_prime, new_node)
 }
