@@ -124,6 +124,7 @@ func (t *Tree) All() ([]interface{}, error) {
 		if start.Next == nil {
 			break
 		}
+		start = start.Next
 	}
 
 	return alllist, nil
