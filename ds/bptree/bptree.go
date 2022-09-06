@@ -636,6 +636,8 @@ func (t *Tree) insertIntoLeafAfterSplitting(leaf *Node, key []byte, pointer inte
 	new_leaf.Parent = leaf.Parent
 	new_key = new_leaf.Keys[0]
 
+	leaf.Next = new_leaf
+
 	return t.insertIntoParent(leaf, new_key, new_leaf)
 }
 
