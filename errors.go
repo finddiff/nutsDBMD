@@ -2,6 +2,8 @@ package nutsDBMD
 
 import "errors"
 
+var ErrKeyNotFound = errors.New("key not found")
+
 // IsDBClosed is true if the error indicates the db was closed.
 func IsDBClosed(err error) bool {
 	return errors.Is(err, ErrDBClosed)

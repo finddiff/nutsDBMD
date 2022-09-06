@@ -39,6 +39,10 @@ type Node struct {
 	Next     *Node
 }
 
+func GetOrder() int {
+	return order
+}
+
 func NewTree() *Tree {
 	return &Tree{}
 }
@@ -214,6 +218,14 @@ func (t *Tree) PrefixScan(prefix []byte, offsetNum int, limitNum int) ([]interfa
 		start = start.Next
 	}
 	return matchList, matchCount, nil
+}
+
+func (t *Tree) FindLeaf(key []byte) *Node {
+	c := t.findLeaf(key, false)
+	if c == nil {
+		return nil
+	}
+	return c
 }
 
 func (t *Tree) Find(key []byte, verbose bool) (interface{}, error) {

@@ -14,12 +14,16 @@
 
 package nutsDBMD
 
-import "fmt"
+import (
+	"bytes"
+	"fmt"
+	"github.com/finddiff/nutsDBMD/ds/bptree"
+)
 
 type Iterator struct {
 	tx *Tx
 
-	current *Node
+	current *bptree.Node
 	i       int
 
 	bucket string
@@ -57,23 +61,23 @@ func (it *Iterator) SetNext() (bool, error) {
 			return false, fmt.Errorf("%s mode is not supported in iterators", "BTree")
 		}
 
-		if index, ok := it.tx.db.BPTreeIdx[it.bucket]; ok {
-			err := it.Seek(index.FirstKey)
+		if _, ok := it.tx.db.BPTreeIdx[it.bucket]; ok {
+			err := it.Seek([]byte{})
 			if err != nil {
 				return false, err
 			}
 		}
 	}
 
-	if it.i >= it.current.KeysNum {
-		it.current, _ = it.current.pointers[order-1].(*Node)
+	if it.i >= it.current.NumKeys {
+		it.current, _ = it.current.Pointers[bptree.GetOrder()-1].(*bptree.Node)
 		if it.current == nil {
 			return false, nil
 		}
 		it.i = 0
 	}
 
-	pointer := it.current.pointers[it.i]
+	pointer := it.current.Pointers[it.i]
 	record := pointer.(*Record)
 	it.i++
 
@@ -129,7 +133,7 @@ func (it *Iterator) Seek(key []byte) error {
 		it.i = -1
 	}
 
-	for it.i = 0; it.i < it.current.KeysNum && compare(it.current.Keys[it.i], key) < 0; {
+	for it.i = 0; it.i < it.current.NumKeys && bytes.Compare(it.current.Keys[it.i], key) < 0; {
 		it.i++
 	}
 	return nil

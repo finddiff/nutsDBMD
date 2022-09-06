@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/snowflake"
+	"github.com/finddiff/nutsDBMD/ds/bptree"
 	"github.com/finddiff/nutsDBMD/ds/list"
 	"github.com/finddiff/nutsDBMD/ds/set"
 	"github.com/finddiff/nutsDBMD/ds/zset"
@@ -71,7 +72,7 @@ type Tx struct {
 	db                     *DB
 	writable               bool
 	pendingWrites          []*Entry
-	ReservedStoreTxIDIdxes map[int64]*BPTree
+	ReservedStoreTxIDIdxes map[int64]*bptree.Tree
 }
 
 // Begin opens a new transaction.
@@ -104,7 +105,7 @@ func newTx(db *DB, writable bool) (tx *Tx, err error) {
 		db:                     db,
 		writable:               writable,
 		pendingWrites:          []*Entry{},
-		ReservedStoreTxIDIdxes: make(map[int64]*BPTree),
+		ReservedStoreTxIDIdxes: make(map[int64]*bptree.Tree),
 	}
 
 	txID, err = tx.getTxID()
@@ -158,10 +159,10 @@ func (tx *Tx) Commit() error {
 	}
 
 	lastIndex := writesLen - 1
-	countFlag := CountFlagEnabled
-	if tx.db.isMerging {
-		countFlag = CountFlagDisabled
-	}
+	//countFlag := CountFlagEnabled
+	//if tx.db.isMerging {
+	//	countFlag = CountFlagDisabled
+	//}
 
 	buff := cachePool.Get().(*bytes.Buffer)
 	defer func() {
@@ -220,7 +221,7 @@ func (tx *Tx) Commit() error {
 		}
 
 		if entry.Meta.Ds == DataStructureBPTree {
-			tx.buildBPTreeIdx(bucket, entry, e, offset, countFlag)
+			tx.buildBPTreeIdx(bucket, entry, e, offset, true)
 		}
 		if entry.Meta.Ds == DataStructureNone && entry.Meta.Flag == DataBPTreeBucketDeleteFlag {
 			tx.db.deleteBucket(DataStructureBPTree, bucket)

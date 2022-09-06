@@ -46,14 +46,14 @@ func (tx *Tx) IterateBuckets(ds uint16, pattern string, f func(key string) bool)
 		}
 	}
 	if ds == DataStructureBPTree {
-		if tx.db.opt.BTree {
-			for bucket := range tx.db.BTreeIdx {
-				if end, err := MatchForRange(pattern, bucket, f); end || err != nil {
-					return err
-				}
-			}
-			return nil
-		}
+		//if tx.db.opt.BTree {
+		//	for bucket := range tx.db.BTreeIdx {
+		//		if end, err := MatchForRange(pattern, bucket, f); end || err != nil {
+		//			return err
+		//		}
+		//	}
+		//	return nil
+		//}
 		for bucket := range tx.db.BPTreeIdx {
 			if end, err := MatchForRange(pattern, bucket, f); end || err != nil {
 				return err
