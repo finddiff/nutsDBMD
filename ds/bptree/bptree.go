@@ -626,6 +626,7 @@ func (t *Tree) insertIntoLeafAfterSplitting(leaf *Node, key []byte, pointer inte
 
 	new_leaf.Pointers[order-1] = leaf.Pointers[order-1]
 	leaf.Pointers[order-1] = new_leaf
+	leaf.Next = new_leaf
 
 	for i = leaf.NumKeys; i < order-1; i++ {
 		leaf.Pointers[i] = nil
@@ -636,7 +637,7 @@ func (t *Tree) insertIntoLeafAfterSplitting(leaf *Node, key []byte, pointer inte
 
 	new_leaf.Parent = leaf.Parent
 	new_key = new_leaf.Keys[0]
-	leaf.Next = new_leaf
+	//leaf.Next = new_leaf
 
 	return t.insertIntoParent(leaf, new_key, new_leaf)
 }
@@ -715,7 +716,6 @@ func (t *Tree) insertIntoNodeAfterSplitting(old_node *Node, left_index int, key 
 		child, _ = new_node.Pointers[i].(*Node)
 		child.Parent = new_node
 	}
-	old_node.Next = new_node
 
 	return t.insertIntoParent(old_node, k_prime, new_node)
 }
