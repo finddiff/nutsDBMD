@@ -137,25 +137,15 @@ func (t *Tree) PrefixScan(prefix []byte, offsetNum int, limitNum int) ([]interfa
 	}
 
 	//find leaf date all save in leaf node
-	for {
-		if start.IsLeaf {
-			break
-		}
-
+	for !start.IsLeaf {
 		start = start.Pointers[0].(*Node)
-		if start == nil {
-			return nil, 0, nil
-		}
 	}
 
 	matchCount := 0
 	prefixLen := len(prefix)
 	isOverPrefix := false
 	matchList := make([]interface{}, 0)
-	for {
-		if start == nil {
-			break
-		}
+	for start != nil {
 
 		for i := 0; i < start.NumKeys; i++ {
 			if !isOverPrefix && bytes.Compare(prefix, start.Keys[i]) < 1 {
@@ -179,7 +169,7 @@ func (t *Tree) PrefixScan(prefix []byte, offsetNum int, limitNum int) ([]interfa
 			}
 		}
 
-		start = start.Next
+		start, _ = start.Pointers[order-1].(*Node)
 	}
 	return matchList, matchCount, nil
 }
