@@ -217,6 +217,8 @@ func open(opt Options) (*DB, error) {
 		fm: newFileManager(opt.RWMode, opt.MaxFdNumsInCache, opt.CleanFdsCacheThreshold),
 	}
 
+	bptree.SetOrder(db.opt.Order)
+
 	if ok := filesystem.PathIsExist(db.opt.Dir); !ok {
 		if err := os.MkdirAll(db.opt.Dir, os.ModePerm); err != nil {
 			return nil, err

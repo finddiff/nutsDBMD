@@ -72,6 +72,9 @@ type Options struct {
 
 	//is BTree mode
 	BTree bool
+
+	//set BPtree order
+	Order int
 }
 
 var defaultSegmentSize int64 = 256 * 1024 * 1024
@@ -89,6 +92,7 @@ var DefaultOptions = func() Options {
 		LoadFileEndNum:       -1,
 		BackUP:               false,
 		BTree:                false,
+		Order:                8,
 	}
 }()
 
