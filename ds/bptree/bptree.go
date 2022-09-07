@@ -43,6 +43,10 @@ func GetOrder() int {
 	return order
 }
 
+func SetOrder(od int) {
+	order = od
+}
+
 func NewTree() *Tree {
 	return &Tree{}
 }

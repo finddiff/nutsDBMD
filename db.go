@@ -672,8 +672,12 @@ func (db *DB) buildBPTreeIdx(bucket string, r *Record) error {
 		db.BPTreeIdx[bucket] = bptree.NewTree()
 	}
 
-	if err := db.BPTreeIdx[bucket].InsertOrUpdate(r.H.Key, r); err != nil {
-		return fmt.Errorf("when build BPTreeIdx insert index err: %s", err)
+	if r.IsExpired() || r.H.Meta.Flag == DataDeleteFlag {
+		db.BPTreeIdx[bucket].Delete(r.H.Key)
+	} else {
+		if err := db.BPTreeIdx[bucket].InsertOrUpdate(r.H.Key, r); err != nil {
+			return fmt.Errorf("when build BPTreeIdx insert index err: %s", err)
+		}
 	}
 
 	//if err := db.BPTreeIdx[bucket].Insert(r.H.Key, r.E, r.H, CountFlagEnabled); err != nil {
