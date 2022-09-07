@@ -3,9 +3,7 @@ package main
 import (
 	"fmt"
 	nutsdb "github.com/finddiff/nutsDBMD"
-	"io/ioutil"
 	"log"
-	"os"
 )
 
 var (
@@ -14,28 +12,28 @@ var (
 )
 
 func init() {
-	fileDir := "/tmp/nutsdb_example"
+	//fileDir := "/tmp/nutsdb_example"
+	//
+	//files, _ := ioutil.ReadDir(fileDir)
+	//for _, f := range files {
+	//	name := f.Name()
+	//	if name != "" {
+	//		fmt.Println(fileDir + "/" + name)
+	//		err := os.RemoveAll(fileDir + "/" + name)
+	//		if err != nil {
+	//			panic(err)
+	//		}
+	//	}
+	//}
 
-	files, _ := ioutil.ReadDir(fileDir)
-	for _, f := range files {
-		name := f.Name()
-		if name != "" {
-			fmt.Println(fileDir + "/" + name)
-			err := os.RemoveAll(fileDir + "/" + name)
-			if err != nil {
-				panic(err)
-			}
-		}
-	}
-
-	fileDir = "D:\\user\\weiyc\\document\\GO\\src\\nutshttp\\examples\\nutsdb"
+	fileDir := "D:\\user\\weiyc\\document\\GO\\src\\nutshttp\\examples\\nutsdb"
 
 	db, _ = nutsdb.Open(
 		nutsdb.DefaultOptions,
 		nutsdb.WithDir(fileDir),
 		nutsdb.WithSegmentSize(1024*1024), // 1MB
 	)
-	db.Backup("/back")
+	//db.Backup("/back")
 	bucket = "bucketForString"
 }
 
