@@ -28,6 +28,22 @@ const (
 	HintBPTSparseIdxMode
 )
 
+type DsHitMode int
+
+const (
+	// Bptree save memory hit in bptree
+	Bptree DsHitMode = iota
+
+	//Bptree save memory hit in btree
+	Btree
+
+	//Skiplist save memory hit in skiplist
+	Skiplist
+
+	//Bptree save memory hit in btree
+	HashMap
+)
+
 // Options records params for creating DB object.
 type Options struct {
 	// Dir represents Open the database located in which dir.
@@ -71,7 +87,7 @@ type Options struct {
 	BackUP bool
 
 	//is BTree mode
-	BTree bool
+	HitMode DsHitMode
 
 	//set BPtree order
 	Order int
@@ -91,7 +107,7 @@ var DefaultOptions = func() Options {
 		LoadFileStartNum:     -1,
 		LoadFileEndNum:       -1,
 		BackUP:               false,
-		BTree:                false,
+		HitMode:              Bptree,
 		Order:                8,
 	}
 }()

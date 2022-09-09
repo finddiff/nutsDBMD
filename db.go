@@ -162,13 +162,14 @@ type (
 		ActiveFile           *DataFile
 		//ActiveBPTreeIdx         *BPTree
 		//ActiveCommittedTxIdsIdx *BPTree
-		committedTxIds map[uint64]struct{}
-		MaxFileID      int64
-		mu             sync.RWMutex
-		KeyCount       int // total key number ,include expired, deleted, repeated.
-		closed         bool
-		isMerging      bool
-		fm             *fileManager
+		committedTxIds   map[uint64]struct{}
+		MaxFileID        int64
+		mu               sync.RWMutex
+		KeyCount         int // total key number ,include expired, deleted, repeated.
+		closed           bool
+		isMerging        bool
+		fm               *fileManager
+		DataHitMemStruct MemHit
 	}
 
 	// BPTreeIdx represents the B+ tree index
@@ -793,11 +794,8 @@ func (db *DB) deleteBucket(ds uint16, bucket string) {
 		delete(db.SortedSetIdx, bucket)
 	}
 	if ds == DataStructureBPTree {
-		if db.opt.BTree {
-			//delete(db.BTreeIdx, bucket)
-		} else {
-			delete(db.BPTreeIdx, bucket)
-		}
+		db.DataHitMemStruct.DeleteBucket(bucket)
+		//delete(db.BPTreeIdx, bucket)
 	}
 	if ds == DataStructureList {
 		delete(db.ListIdx, bucket)
