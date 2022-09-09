@@ -41,11 +41,11 @@ const (
 
 // DataFile records about data file information.
 type DataFile struct {
-	path       string
-	fileID     int64
-	writeOff   int64
-	ActualSize int64
-	rwManager  RWManager
+	path     string
+	fileID   int64
+	writeOff int64
+	//ActualSize int64
+	rwManager RWManager
 }
 
 func (df *DataFile) ReadAll() (elist []*Entry, lastOffset int64, err error) {

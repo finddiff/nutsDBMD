@@ -179,7 +179,7 @@ func (tx *Tx) Commit() error {
 
 		bucket := string(entry.Meta.Bucket)
 
-		if tx.db.ActiveFile.ActualSize+int64(buff.Len())+entrySize > tx.db.opt.SegmentSize {
+		if tx.db.ActiveFile.writeOff+int64(buff.Len())+entrySize > tx.db.opt.SegmentSize {
 			if _, err := tx.writeData(buff.Bytes()); err != nil {
 				return err
 			}
@@ -191,10 +191,6 @@ func (tx *Tx) Commit() error {
 		}
 
 		offset := tx.db.ActiveFile.writeOff + int64(buff.Len())
-
-		if entry.Meta.Ds == DataStructureBPTree {
-			tx.db.BPTreeKeyEntryPosMap[string(entry.Meta.Bucket)+string(entry.Key)] = offset
-		}
 
 		if i == lastIndex {
 			entry.Meta.Status = Committed
@@ -208,11 +204,7 @@ func (tx *Tx) Commit() error {
 			if _, err := tx.writeData(buff.Bytes()); err != nil {
 				return err
 			}
-		}
-
-		if i == lastIndex {
-			txID := entry.Meta.TxID
-			tx.db.committedTxIds[txID] = struct{}{}
+			tx.db.committedTxIds[entry.Meta.TxID] = struct{}{}
 		}
 
 		e = nil
@@ -407,7 +399,7 @@ func (tx *Tx) writeData(data []byte) (n int, err error) {
 		return
 	}
 
-	writeOffset := tx.db.ActiveFile.ActualSize
+	writeOffset := tx.db.ActiveFile.writeOff
 
 	l := len(data)
 	if writeOffset+int64(l) > tx.db.opt.SegmentSize {
@@ -419,7 +411,7 @@ func (tx *Tx) writeData(data []byte) (n int, err error) {
 	}
 
 	tx.db.ActiveFile.writeOff += int64(l)
-	tx.db.ActiveFile.ActualSize += int64(l)
+	//tx.db.ActiveFile.ActualSize += int64(l)
 
 	if tx.db.opt.SyncEnable {
 		if err := tx.db.ActiveFile.rwManager.Sync(); err != nil {

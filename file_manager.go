@@ -42,10 +42,10 @@ func (fm *fileManager) getDataFile(path string, capacity int64) (datafile *DataF
 	}
 
 	return &DataFile{
-		path:       path,
-		writeOff:   0,
-		ActualSize: 0,
-		rwManager:  rwManager,
+		path:     path,
+		writeOff: 0,
+		//ActualSize: 0,
+		rwManager: rwManager,
 	}, nil
 }
 
