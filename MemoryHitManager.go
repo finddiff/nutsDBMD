@@ -19,7 +19,6 @@ type MemHit interface {
 	PrefixSearchScan(bucket string, prefix []byte, reg string, offsetNum int, limitNum int) ([]interface{}, int, error)
 	DeleteBucket(bucket string) error
 	Delete(bucket string, key []byte) error
-	//MatchForRange(pattern, key string, f func(key string) bool) (end bool, err error)
 }
 
 func (db *DB) initDataHitMemStruct() error {
