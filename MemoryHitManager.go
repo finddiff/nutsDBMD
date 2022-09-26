@@ -1,11 +1,10 @@
 package nutsDBMD
 
 import (
+	"github.com/finddiff/nutsDBMD/ds/Iterator"
 	"github.com/finddiff/nutsDBMD/ds/bptree"
 	"github.com/finddiff/nutsDBMD/ds/skiplist"
 )
-
-type ItemIterator func(key []byte, value interface{}) bool
 
 type MemHit interface {
 	Set(bucket string, key []byte, value interface{}) error
@@ -14,7 +13,7 @@ type MemHit interface {
 	Find(bucket string, key []byte) (interface{}, error)
 	FindStart(bucket string) (interface{}, error)
 	FindAllBuckets() ([]string, error)
-	Iterator(bucket string, startKey []byte, fn ItemIterator) error
+	Iterator(bucket string, startKey []byte, fn Iteratorl.ItemIterator) error
 	RangeScan(bucket string, start, end []byte) ([]interface{}, error)
 	PrefixScan(bucket string, prefix []byte, offsetNum int, limitNum int) ([]interface{}, int, error)
 	PrefixSearchScan(bucket string, prefix []byte, reg string, offsetNum int, limitNum int) ([]interface{}, int, error)

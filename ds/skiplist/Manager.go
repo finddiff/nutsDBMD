@@ -3,7 +3,7 @@ package skiplist
 import (
 	"bytes"
 	"errors"
-	nutsdb "github.com/finddiff/nutsDBMD"
+	"github.com/finddiff/nutsDBMD/ds/Iterator"
 	"regexp"
 )
 
@@ -11,7 +11,7 @@ type Manager struct {
 	SkiplistIdx map[string]*SkipList
 }
 
-func (m *Manager) Iterator(bucket string, startKey []byte, fn nutsdb.ItemIterator) error {
+func (m *Manager) Iterator(bucket string, startKey []byte, fn Iterator.ItemIterator) error {
 	return nil
 }
 
