@@ -23,6 +23,7 @@ func (m *Manager) Iterator(bucket string, startKey []byte, fn Iterator.ItemItera
 				}
 			}
 		}
+		//call fn
 		for c != nil {
 			for i := starIndex; i < c.NumKeys; i++ {
 				if !fn(c.Keys[i], c.Pointers[i]) {
