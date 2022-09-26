@@ -103,6 +103,20 @@ func (t *Tree) InsertOrUpdate(key []byte, r interface{}) error {
 	return t.insertIntoLeafAfterSplitting(leaf, key, r)
 }
 
+func (t *Tree) FindStart() (interface{}, error) {
+	start := t.Root
+	if start == nil {
+		return nil, nil
+	}
+
+	//find leaf date all save in leaf node
+	for start != nil && !start.IsLeaf {
+		start = start.Pointers[0].(*Node)
+	}
+
+	return start, nil
+}
+
 func (t *Tree) All() ([]interface{}, error) {
 	start := t.Root
 	if start == nil {

@@ -218,7 +218,7 @@ func open(opt Options) (*DB, error) {
 		fm: newFileManager(opt.RWMode, opt.MaxFdNumsInCache, opt.CleanFdsCacheThreshold),
 	}
 
-	bptree.SetOrder(db.opt.Order)
+	db.initDataHitMemStruct()
 
 	if ok := filesystem.PathIsExist(db.opt.Dir); !ok {
 		if err := os.MkdirAll(db.opt.Dir, os.ModePerm); err != nil {
@@ -233,6 +233,8 @@ func open(opt Options) (*DB, error) {
 	if err := db.buildIndexes(); err != nil {
 		return nil, fmt.Errorf("db.buildIndexes error: %s", err)
 	}
+
+	go db.cronFreeInvalid()
 
 	return db, nil
 }
@@ -640,66 +642,16 @@ func (db *DB) parseDataFiles(dataFileIds []int) (unconfirmedRecords []*Record, e
 //}
 
 func (db *DB) buildBPTreeIdx(bucket string, r *Record) error {
-	//if db.opt.BTree {
-	//	//if _, ok := db.BTreeIdx[bucket]; !ok {
-	//	//	db.BTreeIdx[bucket] = btree.New[*Record](128)
-	//	//}
-	//	//
-	//	//if r.H.Meta.Flag == DataDeleteFlag || r.IsExpired() {
-	//	//	if item, _ := db.BTreeIdx[bucket].Get(r); item != nil {
-	//	//		db.BTreeIdx[bucket].Delete(r)
-	//	//	}
-	//	//} else {
-	//	//	db.BTreeIdx[bucket].ReplaceOrInsert(r)
-	//	//}
-	//	//
-	//	//return nil
-	//
-	//	if _, ok := db.BptreeIdx[bucket]; !ok {
-	//		db.BptreeIdx[bucket] = bptree.NewTree()
-	//	}
-	//
-	//	if r.H.Meta.Flag == DataDeleteFlag || r.IsExpired() {
-	//		if item, _ := db.BptreeIdx[bucket].Find(r.H.Key, false); item != nil {
-	//			db.BptreeIdx[bucket].Delete(r.H.Key)
-	//		}
-	//	} else {
-	//		db.BptreeIdx[bucket].InsertOrUpdate(r.H.Key, r)
-	//	}
-	//
-	//	return nil
-	//}
-
-	if _, ok := db.BPTreeIdx[bucket]; !ok {
-		//db.BPTreeIdx[bucket] = NewTree()
-		db.BPTreeIdx[bucket] = bptree.NewTree()
-	}
-
 	if r.IsExpired() || r.H.Meta.Flag == DataDeleteFlag {
-		db.BPTreeIdx[bucket].Delete(r.H.Key)
+		db.DataHitMemStruct.Delete(bucket, r.H.Key)
 	} else {
-		if err := db.BPTreeIdx[bucket].InsertOrUpdate(r.H.Key, r); err != nil {
+		if err := db.DataHitMemStruct.Set(bucket, r.H.Key, r); err != nil {
 			return fmt.Errorf("when build BPTreeIdx insert index err: %s", err)
 		}
 	}
 
-	//if err := db.BPTreeIdx[bucket].Insert(r.H.Key, r.E, r.H, CountFlagEnabled); err != nil {
-	//	return fmt.Errorf("when build BPTreeIdx insert index err: %s", err)
-	//}
-
 	return nil
 }
-
-//func (db *DB) buildActiveBPTreeIdx(r *Record) error {
-//	newKey := r.H.Meta.Bucket
-//	newKey = append(newKey, r.H.Key...)
-//
-//	if err := db.ActiveBPTreeIdx.Insert(newKey, r.E, r.H, CountFlagEnabled); err != nil {
-//		return fmt.Errorf("when build BPTreeIdx insert index err: %s", err)
-//	}
-//
-//	return nil
-//}
 
 func (db *DB) buildBucketMetaIdx() error {
 
@@ -1014,26 +966,6 @@ func (db *DB) getBPTDir() string {
 	return db.opt.Dir + separator + bptDir
 }
 
-//func (db *DB) getBPTPath(fID int64) string {
-//	separator := string(filepath.Separator)
-//	return db.getBPTDir() + separator + strconv2.Int64ToStr(fID) + BPTIndexSuffix
-//}
-//
-//func (db *DB) getBPTRootPath(fID int64) string {
-//	separator := string(filepath.Separator)
-//	return db.getBPTDir() + separator + "root" + separator + strconv2.Int64ToStr(fID) + BPTRootIndexSuffix
-//}
-//
-//func (db *DB) getBPTTxIDPath(fID int64) string {
-//	separator := string(filepath.Separator)
-//	return db.getBPTDir() + separator + "txid" + separator + strconv2.Int64ToStr(fID) + BPTTxIDIndexSuffix
-//}
-//
-//func (db *DB) getBPTRootTxIDPath(fID int64) string {
-//	separator := string(filepath.Separator)
-//	return db.getBPTDir() + separator + "txid" + separator + strconv2.Int64ToStr(fID) + BPTRootTxIDIndexSuffix
-//}
-
 func (db *DB) getPendingMergeEntries(entry *Entry, pendingMergeEntries []*Entry) []*Entry {
 	if entry.Meta.Ds == DataStructureBPTree {
 		//if db.opt.BTree {
@@ -1169,4 +1101,66 @@ func (db *DB) getRecordFromKey(bucket, key []byte) (record *Record, err error) {
 	record = r.(*Record)
 	return
 	//}
+}
+
+func (db *DB) deleteMemHitKeys(bucket string, keylist [][]byte) {
+	fmt.Printf("%s: deleteMemHitKeys bucket:%s, len(keylist):%d\n", time.Now().Format("2006-01-02 15:04:05.000000"), bucket, len(keylist))
+	tx, err := db.Begin(true)
+	if err != nil {
+		return
+	}
+	defer tx.Commit()
+	for _, key := range keylist {
+		db.DataHitMemStruct.Delete(bucket, key)
+	}
+}
+
+func (db *DB) cronFreeInvalid() {
+	ticker := time.NewTicker(time.Duration(db.opt.InvalidDel) * time.Second)
+	defer ticker.Stop()
+	endbuckets := make(map[string]string)
+	bucketNow := ""
+	lastKey := []byte{}
+	batchSize := 10000
+
+	for range ticker.C {
+		invalidList := [][]byte{}
+		invalidCount := 0
+
+		//查找已经失效的key
+		if buckets, err := db.DataHitMemStruct.FindAllBuckets(); err == nil {
+			if len(buckets) == len(endbuckets) {
+				endbuckets = make(map[string]string)
+			}
+			for _, bucketNow = range buckets {
+				if _, ok := endbuckets[bucketNow]; ok {
+					continue
+				}
+
+				db.DataHitMemStruct.Iterator(bucketNow, lastKey, func(key []byte, value interface{}) bool {
+					r := value.(*Record)
+					if r.IsExpired() || r.H.Meta.Flag == DataDeleteFlag {
+						invalidList = append(invalidList, key)
+						invalidCount++
+						if invalidCount >= batchSize {
+							return false
+						}
+					}
+					return true
+				})
+
+			}
+		}
+
+		//使用写事务，删除失效key
+		if invalidCount > 0 {
+			if invalidCount < batchSize {
+				endbuckets[bucketNow] = ""
+			}
+			db.deleteMemHitKeys(bucketNow, invalidList)
+			invalidList = [][]byte{}
+			invalidCount = 0
+		}
+
+	}
 }

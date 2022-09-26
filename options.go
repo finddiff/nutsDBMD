@@ -91,6 +91,9 @@ type Options struct {
 
 	//set BPtree order
 	Order int
+
+	//invalid key delete sleep time by secodes
+	InvalidDel int
 }
 
 var defaultSegmentSize int64 = 256 * 1024 * 1024
@@ -109,6 +112,7 @@ var DefaultOptions = func() Options {
 		BackUP:               false,
 		HitMode:              Bptree,
 		Order:                8,
+		InvalidDel:           3600,
 	}
 }()
 

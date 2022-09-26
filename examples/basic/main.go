@@ -27,11 +27,13 @@ func init() {
 	//}
 
 	fileDir := "D:\\user\\weiyc\\document\\GO\\src\\nutshttp\\examples\\nutsdb"
+	opt := nutsdb.DefaultOptions
+	opt.HitMode = nutsdb.Skiplist
 
 	db, _ = nutsdb.Open(
-		nutsdb.DefaultOptions,
+		opt,
 		nutsdb.WithDir(fileDir),
-		nutsdb.WithSegmentSize(1024*1024), // 1MB
+		//nutsdb.WithSegmentSize(1024*1024), // 1MB
 	)
 	//db.Backup("/back")
 	bucket = "bucketForString"
