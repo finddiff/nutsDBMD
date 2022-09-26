@@ -112,7 +112,7 @@ var DefaultOptions = func() Options {
 		BackUP:               false,
 		HitMode:              Bptree,
 		Order:                8,
-		InvalidDel:           3600,
+		InvalidDel:           60 * 60,
 	}
 }()
 
