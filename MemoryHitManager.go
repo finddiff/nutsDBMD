@@ -13,7 +13,7 @@ type MemHit interface {
 	Find(bucket string, key []byte) (interface{}, error)
 	FindStart(bucket string) (interface{}, error)
 	FindAllBuckets() ([]string, error)
-	Iterator(bucket string, startKey []byte, fn Iteratorl.ItemIterator) error
+	Iterator(bucket string, startKey []byte, fn Iterator.ItemIterator) error
 	RangeScan(bucket string, start, end []byte) ([]interface{}, error)
 	PrefixScan(bucket string, prefix []byte, offsetNum int, limitNum int) ([]interface{}, int, error)
 	PrefixSearchScan(bucket string, prefix []byte, reg string, offsetNum int, limitNum int) ([]interface{}, int, error)

@@ -176,8 +176,8 @@ func TestDB_Merge_For_string(t *testing.T) {
 	require.NoError(t, err)
 
 	//GetValidKeyCount
-	validKeyNum := db2.BPTreeIdx[bucketForString].ValidKeyCount
-	assert.EqualValuesf(t, 1, validKeyNum, "err GetValidKeyCount. got %d want %d", validKeyNum, 1)
+	//validKeyNum := db2.BPTreeIdx[bucketForString].ValidKeyCount
+	//assert.EqualValuesf(t, 1, validKeyNum, "err GetValidKeyCount. got %d want %d", validKeyNum, 1)
 
 	err = db2.Merge()
 	assert.NoError(t, err, "err merge")
