@@ -14,24 +14,22 @@ type Manager struct {
 func (m *Manager) Iterator(bucket string, startKey []byte, fn Iterator.ItemIterator) error {
 	//TODO implement me
 	if tree, ok := m.BPTreeIdx[bucket]; ok {
-		for {
-			c := tree.findLeaf(startKey, false)
-			starIndex := 0
-			if c != nil {
-				for starIndex = 0; starIndex < c.NumKeys; starIndex++ {
-					if bytes.Compare(c.Keys[starIndex], startKey) > -1 {
-						break
-					}
+		c := tree.findLeaf(startKey, false)
+		starIndex := 0
+		if c != nil {
+			for starIndex = 0; starIndex < c.NumKeys; starIndex++ {
+				if bytes.Compare(c.Keys[starIndex], startKey) > -1 {
+					break
 				}
 			}
-			for c != nil {
-				for i := starIndex; i < c.NumKeys; i++ {
-					if !fn(c.Keys[i], c.Pointers[i]) {
-						return nil
-					}
+		}
+		for c != nil {
+			for i := starIndex; i < c.NumKeys; i++ {
+				if !fn(c.Keys[i], c.Pointers[i]) {
+					return nil
 				}
-				c = c.Next
 			}
+			c = c.Next
 		}
 	}
 	return nil
