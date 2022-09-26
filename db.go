@@ -1111,7 +1111,14 @@ func (db *DB) deleteMemHitKeys(bucket string, keylist [][]byte) {
 	}
 	defer tx.Commit()
 	for _, key := range keylist {
-		db.DataHitMemStruct.Delete(bucket, key)
+		value, err := db.DataHitMemStruct.Get(bucket, key)
+		if err != nil || value == nil {
+			continue
+		}
+		r := value.(*Record)
+		if r.IsExpired() || r.H.Meta.Flag == DataDeleteFlag {
+			db.DataHitMemStruct.Delete(bucket, key)
+		}
 	}
 }
 
@@ -1138,6 +1145,9 @@ func (db *DB) cronFreeInvalid() {
 				}
 
 				db.DataHitMemStruct.Iterator(bucketNow, lastKey, func(key []byte, value interface{}) bool {
+					if value == nil {
+						return false
+					}
 					r := value.(*Record)
 					if r.IsExpired() || r.H.Meta.Flag == DataDeleteFlag {
 						invalidList = append(invalidList, key)
