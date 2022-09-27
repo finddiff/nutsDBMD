@@ -56,7 +56,7 @@ func (m *Manager) PrefixSearchScan(bucket string, prefix []byte, reg string, off
 		endcount := offsetNum + limitNum
 		re := regexp.MustCompile(reg)
 		tree.WalkPrefix(prefix, func(key []byte, value interface{}) bool {
-			if count >= offsetNum && count > endcount && re.Match(key) {
+			if count >= offsetNum && count < endcount && re.Match(key) {
 				resultlist = append(resultlist, value)
 			} else {
 				return true
@@ -132,7 +132,7 @@ func (m *Manager) PrefixScan(bucket string, prefix []byte, offsetNum int, limitN
 		count := 0
 		endcount := offsetNum + limitNum
 		tree.WalkPrefix(prefix, func(key []byte, value interface{}) bool {
-			if count >= offsetNum && count > endcount {
+			if count >= offsetNum && count < endcount {
 				resultlist = append(resultlist, value)
 			} else {
 				return true
