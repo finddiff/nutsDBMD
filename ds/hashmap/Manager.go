@@ -3,6 +3,7 @@ package hashmap
 import (
 	"errors"
 	"github.com/finddiff/nutsDBMD/ds/Iterator"
+	"sync"
 )
 
 type Manager struct {
@@ -26,27 +27,34 @@ func (m *Manager) FindAllBuckets() ([]string, error) {
 func (m *Manager) Iterator(bucket string, startKey []byte, fn Iterator.ItemIterator) error {
 	//TODO implement me
 	if dsmap, ok := m.MapIdx[bucket]; ok {
-		for key, value := range dsmap.dsmap {
-			if !fn([]byte(key), value) {
-				return nil
-			}
-		}
+		//for key, value := range dsmap.dsmap {
+		//	if !fn([]byte(key), value) {
+		//		return nil
+		//	}
+		//}
+		dsmap.dsmap.Range(func(key, value any) bool {
+			return fn(key.([]byte), value)
+		})
 	}
 	return nil
 }
 
 func (m *Manager) Set(bucket string, key []byte, value interface{}) error {
 	//TODO implement me
-	if dsmap, ok := m.MapIdx[bucket]; ok {
-		dsmap.dsmap[string(key)] = value
+	if _, ok := m.MapIdx[bucket]; !ok {
+		m.MapIdx[bucket] = &hashmap{
+			dsmap: *new(sync.Map),
+		}
 	}
+
+	m.MapIdx[bucket].dsmap.Store(key, value)
 	return nil
 }
 
 func (m *Manager) Get(bucket string, key []byte) (interface{}, error) {
 	//TODO implement me
 	if dsmap, ok := m.MapIdx[bucket]; ok {
-		if value, ok := dsmap.dsmap[string(key)]; ok {
+		if value, ok := dsmap.dsmap.Load(key); ok {
 			return value, nil
 		}
 	}
@@ -90,9 +98,11 @@ func (m *Manager) Delete(bucket string, key []byte) error {
 	//TODO implement me
 	//return errors.New("implement me")
 	if _, ok := m.MapIdx[bucket]; ok {
-		if _, ok = m.MapIdx[bucket].dsmap[string(key)]; ok {
-			delete(m.MapIdx[bucket].dsmap, string(key))
-		}
+		m.MapIdx[bucket].dsmap.Delete(key)
+		//if _, ok = m.MapIdx[bucket].dsmap.Load(key); ok {
+		//	//delete(m.MapIdx[bucket].dsmap, string(key))
+		//
+		//}
 	}
 
 	return nil
