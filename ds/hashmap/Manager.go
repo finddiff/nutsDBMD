@@ -33,7 +33,7 @@ func (m *Manager) Iterator(bucket string, startKey []byte, fn Iterator.ItemItera
 		//	}
 		//}
 		dsmap.dsmap.Range(func(key, value any) bool {
-			return fn(key.([]byte), value)
+			return fn([]byte(key.(string)), value)
 		})
 	}
 	return nil
@@ -47,14 +47,14 @@ func (m *Manager) Set(bucket string, key []byte, value interface{}) error {
 		}
 	}
 
-	m.MapIdx[bucket].dsmap.Store(key, value)
+	m.MapIdx[bucket].dsmap.Store(string(key), value)
 	return nil
 }
 
 func (m *Manager) Get(bucket string, key []byte) (interface{}, error) {
 	//TODO implement me
 	if dsmap, ok := m.MapIdx[bucket]; ok {
-		if value, ok := dsmap.dsmap.Load(key); ok {
+		if value, ok := dsmap.dsmap.Load(string(key)); ok {
 			return value, nil
 		}
 	}
@@ -98,7 +98,7 @@ func (m *Manager) Delete(bucket string, key []byte) error {
 	//TODO implement me
 	//return errors.New("implement me")
 	if _, ok := m.MapIdx[bucket]; ok {
-		m.MapIdx[bucket].dsmap.Delete(key)
+		m.MapIdx[bucket].dsmap.Delete(string(key))
 		//if _, ok = m.MapIdx[bucket].dsmap.Load(key); ok {
 		//	//delete(m.MapIdx[bucket].dsmap, string(key))
 		//
