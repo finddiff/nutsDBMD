@@ -40,8 +40,11 @@ const (
 	//Skiplist save memory hit in skiplist
 	Skiplist
 
-	//Bptree save memory hit in btree
+	//hashmap save memory hit in btree
 	HashMap
+
+	//CritBit save memory hit in btree
+	CritBit
 )
 
 // Options records params for creating DB object.
@@ -110,9 +113,9 @@ var DefaultOptions = func() Options {
 		LoadFileStartNum:     -1,
 		LoadFileEndNum:       -1,
 		BackUP:               false,
-		HitMode:              Bptree,
+		HitMode:              CritBit,
 		Order:                8,
-		InvalidDel:           60 * 60,
+		InvalidDel:           60,
 	}
 }()
 

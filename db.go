@@ -1131,13 +1131,15 @@ func (db *DB) cronFreeInvalid() {
 	endbuckets := make(map[string]string)
 	bucketNow := ""
 	lastKey := []byte{}
-	batchSize := 10000
+	batchSize := 10000 * db.opt.InvalidDel
 	invalidList := [][]byte{}
+	listCount := 0
 	invalidCount := 0
 	validCount := 0
 
 	for range ticker.C {
 		invalidList = [][]byte{}
+		listCount = 0
 		invalidCount = 0
 		validCount = 0
 
@@ -1158,11 +1160,15 @@ func (db *DB) cronFreeInvalid() {
 					}
 					r := value.(*Record)
 					if r.IsExpired() || r.H.Meta.Flag == DataDeleteFlag {
-						invalidList = append(invalidList, key)
 						invalidCount++
-						if invalidCount >= batchSize {
-							return false
+						if listCount >= batchSize {
+							return true
 						}
+						invalidList = append(invalidList, key)
+						listCount++
+						//if invalidCount >= batchSize {
+						//	return false
+						//}
 					} else {
 						validCount++
 					}
@@ -1183,6 +1189,6 @@ func (db *DB) cronFreeInvalid() {
 			endbuckets[bucketNow] = ""
 			lastKey = []byte{}
 		}
-		fmt.Printf("%s: free-memory cronFreeInvalid end bucketNow:%s invalidCount:%d validCount:%d lastKey:%s\n", time.Now().Format("2006-01-02 15:04:05.000000"), bucketNow, invalidCount, validCount, string(lastKey))
+		fmt.Printf("%s: free-memory cronFreeInvalid end bucketNow:%s listCount:%d invalidCount:%d validCount:%d lastKey:%s\n", time.Now().Format("2006-01-02 15:04:05.000000"), bucketNow, listCount, invalidCount, validCount, string(lastKey))
 	}
 }
