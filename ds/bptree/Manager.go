@@ -30,7 +30,8 @@ func (m *Manager) Iterator(bucket string, startKey []byte, fn Iterator.ItemItera
 					return nil
 				}
 			}
-			c = c.Next
+			starIndex = 0
+			c, _ = c.Pointers[order-1].(*Node)
 		}
 	}
 	return nil

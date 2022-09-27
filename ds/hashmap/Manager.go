@@ -1,9 +1,38 @@
 package hashmap
 
-import "errors"
+import (
+	"errors"
+	"github.com/finddiff/nutsDBMD/ds/Iterator"
+)
 
 type Manager struct {
 	MapIdx map[string]*hashmap
+}
+
+func (m *Manager) FindStart(bucket string) (interface{}, error) {
+	//TODO implement me
+	return nil, nil
+}
+
+func (m *Manager) FindAllBuckets() ([]string, error) {
+	//TODO implement me
+	buckets := []string{}
+	for bucket, _ := range m.MapIdx {
+		buckets = append(buckets, bucket)
+	}
+	return buckets, nil
+}
+
+func (m *Manager) Iterator(bucket string, startKey []byte, fn Iterator.ItemIterator) error {
+	//TODO implement me
+	if dsmap, ok := m.MapIdx[bucket]; ok {
+		for key, value := range dsmap.dsmap {
+			if !fn([]byte(key), value) {
+				return nil
+			}
+		}
+	}
+	return nil
 }
 
 func (m *Manager) Set(bucket string, key []byte, value interface{}) error {
@@ -67,4 +96,10 @@ func (m *Manager) Delete(bucket string, key []byte) error {
 	}
 
 	return nil
+}
+
+func NewManager() *Manager {
+	return &Manager{
+		MapIdx: map[string]*hashmap{},
+	}
 }

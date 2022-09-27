@@ -1104,12 +1104,13 @@ func (db *DB) getRecordFromKey(bucket, key []byte) (record *Record, err error) {
 }
 
 func (db *DB) deleteMemHitKeys(bucket string, keylist [][]byte) {
-	fmt.Printf("%s: deleteMemHitKeys bucket:%s, len(keylist):%d\n", time.Now().Format("2006-01-02 15:04:05.000000"), bucket, len(keylist))
+	fmt.Printf("%s: free-memory deleteMemHitKeys bucket:%s, len(keylist):%d\n", time.Now().Format("2006-01-02 15:04:05.000000"), bucket, len(keylist))
 	tx, err := db.Begin(true)
 	if err != nil {
 		return
 	}
 	defer tx.Commit()
+	deleteCount := 0
 	for _, key := range keylist {
 		value, err := db.DataHitMemStruct.Get(bucket, key)
 		if err != nil || value == nil {
@@ -1118,8 +1119,10 @@ func (db *DB) deleteMemHitKeys(bucket string, keylist [][]byte) {
 		r := value.(*Record)
 		if r.IsExpired() || r.H.Meta.Flag == DataDeleteFlag {
 			db.DataHitMemStruct.Delete(bucket, key)
+			deleteCount++
 		}
 	}
+	fmt.Printf("%s: free-memory deleteMemHitKeys bucket:%s, deleteCount:%d\n", time.Now().Format("2006-01-02 15:04:05.000000"), bucket, deleteCount)
 }
 
 func (db *DB) cronFreeInvalid() {
@@ -1129,10 +1132,14 @@ func (db *DB) cronFreeInvalid() {
 	bucketNow := ""
 	lastKey := []byte{}
 	batchSize := 10000
+	invalidList := [][]byte{}
+	invalidCount := 0
+	validCount := 0
 
 	for range ticker.C {
-		invalidList := [][]byte{}
-		invalidCount := 0
+		invalidList = [][]byte{}
+		invalidCount = 0
+		validCount = 0
 
 		//查找已经失效的key
 		if buckets, err := db.DataHitMemStruct.FindAllBuckets(); err == nil {
@@ -1145,6 +1152,7 @@ func (db *DB) cronFreeInvalid() {
 				}
 
 				db.DataHitMemStruct.Iterator(bucketNow, lastKey, func(key []byte, value interface{}) bool {
+					lastKey = key
 					if value == nil {
 						return false
 					}
@@ -1155,6 +1163,8 @@ func (db *DB) cronFreeInvalid() {
 						if invalidCount >= batchSize {
 							return false
 						}
+					} else {
+						validCount++
 					}
 					return true
 				})
@@ -1166,11 +1176,13 @@ func (db *DB) cronFreeInvalid() {
 		if invalidCount > 0 {
 			if invalidCount < batchSize {
 				endbuckets[bucketNow] = ""
+				lastKey = []byte{}
 			}
 			db.deleteMemHitKeys(bucketNow, invalidList)
-			invalidList = [][]byte{}
-			invalidCount = 0
+		} else {
+			endbuckets[bucketNow] = ""
+			lastKey = []byte{}
 		}
-
+		fmt.Printf("%s: free-memory cronFreeInvalid end bucketNow:%s invalidCount:%d validCount:%d lastKey:%s\n", time.Now().Format("2006-01-02 15:04:05.000000"), bucketNow, invalidCount, validCount, string(lastKey))
 	}
 }

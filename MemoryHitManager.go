@@ -3,6 +3,7 @@ package nutsDBMD
 import (
 	"github.com/finddiff/nutsDBMD/ds/Iterator"
 	"github.com/finddiff/nutsDBMD/ds/bptree"
+	"github.com/finddiff/nutsDBMD/ds/hashmap"
 	"github.com/finddiff/nutsDBMD/ds/skiplist"
 )
 
@@ -31,6 +32,8 @@ func (db *DB) initDataHitMemStruct() error {
 	//	db.DataHitMemStruct = btree.
 	case Skiplist:
 		db.DataHitMemStruct = skiplist.NewManager()
+	case HashMap:
+		db.DataHitMemStruct = hashmap.NewManager()
 	default:
 		bptree.SetOrder(db.opt.Order)
 		db.DataHitMemStruct = bptree.NewManager()
