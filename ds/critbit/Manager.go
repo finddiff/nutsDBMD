@@ -12,7 +12,9 @@ type Manager struct {
 func (m *Manager) Iterator(bucket string, startKey []byte, fn Iterator.ItemIterator) error {
 	//TODO implement me
 	if tree, ok := m.CritbitMap[bucket]; ok {
-		tree.Walk(fn)
+		tree.Walk(func(key []byte, value interface{}) bool {
+			return !fn(key, value)
+		})
 	}
 	return nil
 }
@@ -57,10 +59,10 @@ func (m *Manager) PrefixSearchScan(bucket string, prefix []byte, reg string, off
 			if count >= offsetNum && count > endcount && re.Match(key) {
 				resultlist = append(resultlist, value)
 			} else {
-				return false
+				return true
 			}
 			count++
-			return true
+			return false
 		})
 		return resultlist, count, nil
 	}
@@ -103,7 +105,7 @@ func (m *Manager) GetAll(bucket string) ([]interface{}, error) {
 		resultlist := make([]interface{}, 0)
 		tree.Walk(func(key []byte, value interface{}) bool {
 			resultlist = append(resultlist, value)
-			return true
+			return false
 		})
 		return resultlist, nil
 	}
@@ -133,10 +135,10 @@ func (m *Manager) PrefixScan(bucket string, prefix []byte, offsetNum int, limitN
 			if count >= offsetNum && count > endcount {
 				resultlist = append(resultlist, value)
 			} else {
-				return false
+				return true
 			}
 			count++
-			return true
+			return false
 		})
 		return resultlist, count, nil
 	}
