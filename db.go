@@ -170,6 +170,7 @@ type (
 		isMerging        bool
 		fm               *fileManager
 		DataHitMemStruct MemHit
+		StartTime        uint64
 	}
 
 	// BPTreeIdx represents the B+ tree index
@@ -215,7 +216,8 @@ func open(opt Options) (*DB, error) {
 		//BPTreeKeyEntryPosMap: make(map[string]int64),
 		bucketMetas: make(map[string]*BucketMeta),
 		//ActiveCommittedTxIdsIdx: NewTree(),
-		fm: newFileManager(opt.RWMode, opt.MaxFdNumsInCache, opt.CleanFdsCacheThreshold),
+		fm:        newFileManager(opt.RWMode, opt.MaxFdNumsInCache, opt.CleanFdsCacheThreshold),
+		StartTime: uint64(time.Now().Unix()),
 	}
 
 	db.initDataHitMemStruct()
@@ -639,6 +641,16 @@ func (db *DB) parseDataFiles(dataFileIds []int) (unconfirmedRecords []*Record, e
 //	db.committedTxIds = nil
 //
 //	return nil
+//}
+
+//func (db *DB) IsExpired(r *Record) bool {
+//	if r.H.Meta.TTL == Persistent || r.H.Meta.TTL > db.opt.MaxTtl {
+//		r.H.Meta.TTL = db.opt.MaxTtl
+//	}
+//	if r.H.Meta.TTL > 0 && uint64(r.H.Meta.TTL)+r.E.Meta.Timestamp > uint64(db.StartTime) || r.H.Meta.TTL == Persistent {
+//		return false
+//	}
+//	return true
 //}
 
 func (db *DB) buildBPTreeIdx(bucket string, r *Record) error {
