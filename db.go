@@ -1135,6 +1135,7 @@ func (db *DB) deleteMemHitKeys(bucket string, keylist [][]byte) {
 		if r.H.Meta.TTL == Persistent || r.H.Meta.TTL > db.opt.MaxTtl {
 			r.H.Meta.TTL = db.opt.MaxTtl
 		}
+
 		if r.IsExpired() || r.H.Meta.Flag == DataDeleteFlag {
 			db.DataHitMemStruct.Delete(bucket, key)
 			deleteCount++
