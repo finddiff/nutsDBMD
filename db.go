@@ -642,6 +642,9 @@ func (db *DB) parseDataFiles(dataFileIds []int) (unconfirmedRecords []*Record, e
 //}
 
 func (db *DB) buildBPTreeIdx(bucket string, r *Record) error {
+	if r.H.Meta.TTL == Persistent || r.H.Meta.TTL > db.opt.MaxTtl {
+		r.H.Meta.TTL = db.opt.MaxTtl
+	}
 	if r.IsExpired() || r.H.Meta.Flag == DataDeleteFlag {
 		db.DataHitMemStruct.Delete(bucket, r.H.Key)
 	} else {
