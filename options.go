@@ -97,6 +97,9 @@ type Options struct {
 
 	//invalid key delete sleep time by secodes
 	InvalidDel int
+
+	//Max ttl
+	MaxTtl uint32
 }
 
 var defaultSegmentSize int64 = 256 * 1024 * 1024
@@ -116,6 +119,7 @@ var DefaultOptions = func() Options {
 		HitMode:              CritBit,
 		Order:                8,
 		InvalidDel:           60,
+		MaxTtl:               Persistent,
 	}
 }()
 

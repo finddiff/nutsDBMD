@@ -1159,6 +1159,9 @@ func (db *DB) cronFreeInvalid() {
 						return false
 					}
 					r := value.(*Record)
+					if r.H.Meta.TTL == Persistent || r.H.Meta.TTL > db.opt.MaxTtl {
+						r.H.Meta.TTL = db.opt.MaxTtl
+					}
 					if r.IsExpired() || r.H.Meta.Flag == DataDeleteFlag {
 						invalidCount++
 						if listCount >= batchSize {
