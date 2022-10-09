@@ -1097,19 +1097,8 @@ func (db *DB) getRecordFromKey(bucket, key []byte) (record *Record, err error) {
 	if !(idxMode == HintKeyValAndRAMIdxMode || idxMode == HintKeyAndRAMIdxMode) {
 		return nil, errors.New("not implemented")
 	}
-	//if db.opt.BTree {
-	//idx, ok := db.BTreeIdx[string(bucket)]
-	//if !ok {
-	//	return nil, ErrBucketNotFound
-	//}
-	//record, _ = idx.Get(&Record{H: &Hint{Key: key}})
-	//return
-	//} else {
-	idx, ok := db.BPTreeIdx[string(bucket)]
-	if !ok {
-		return nil, ErrBucketNotFound
-	}
-	r, err := idx.Find(key, false)
+
+	r, err := db.DataHitMemStruct.Find(string(bucket), key)
 	if err != nil {
 		return nil, err
 	}
