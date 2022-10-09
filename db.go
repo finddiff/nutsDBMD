@@ -1250,7 +1250,7 @@ func (db *DB) DeleteOldFiles(count int) error {
 		} else {
 			_ = f.rwManager.Release()
 			continue
-			fmt.Printf("%s:when DeleteOldFiles pendingMergeFId:%d ReadAll err: %s", time.Now().Format("2006-01-02 15:04:05.000000"), pendingMergeFId, err.Error())
+			fmt.Printf("%s:when DeleteOldFiles pendingMergeFId:%d ReadAll err: %s\n", time.Now().Format("2006-01-02 15:04:05.000000"), pendingMergeFId, err.Error())
 		}
 
 		if needDeleteFile {
@@ -1261,7 +1261,7 @@ func (db *DB) DeleteOldFiles(count int) error {
 				return err
 			}
 			if err := os.Remove(path); err != nil {
-				fmt.Printf("%s:when DeleteOldFiles pendingMergeFId:%d Remove:%s err: %s", time.Now().Format("2006-01-02 15:04:05.000000"), pendingMergeFId, path, err.Error())
+				fmt.Printf("%s:when DeleteOldFiles pendingMergeFId:%d Remove:%s err: %s\n", time.Now().Format("2006-01-02 15:04:05.000000"), pendingMergeFId, path, err.Error())
 			}
 		}
 	}

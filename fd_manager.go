@@ -201,7 +201,8 @@ func (fdm *fdManager) cleanUselessFd() error {
 func (fdm *fdManager) closeByPath(path string) error {
 	fdm.Lock()
 	defer fdm.Unlock()
-	fdInfo, ok := fdm.cache[path]
+	cleanPath := filepath.Clean(path)
+	fdInfo, ok := fdm.cache[cleanPath]
 	if !ok {
 		return nil
 	}
