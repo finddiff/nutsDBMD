@@ -1215,7 +1215,8 @@ func (db *DB) cronDeleteInvalidFiles() {
 	ticker := time.NewTicker(time.Duration(db.opt.InvalidFileDel) * time.Hour)
 	defer ticker.Stop()
 	for range ticker.C {
-		db.DeleteOldFiles(db.opt.InvalidFileDelCount)
+		//db.DeleteOldFiles(db.opt.InvalidFileDelCount)
+		db.DeleteAllOldFiles()
 	}
 }
 
@@ -1227,6 +1228,8 @@ func (db *DB) DeleteAllOldFiles() error {
 	if db.opt.EntryIdxMode == HintBPTSparseIdxMode {
 		return ErrNotSupportHintBPTSparseIdxMode
 	}
+
+	fmt.Printf("%s: free-memory DeleteAllOldFiles start\n", time.Now().Format("2006-01-02 15:04:05.000000"))
 
 	_, pendingMergeFIds = db.getMaxFileIDAndFileIDs()
 
