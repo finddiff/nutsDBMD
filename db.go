@@ -1264,6 +1264,8 @@ func (db *DB) DeleteOldFiles(count int) error {
 			}
 			if err := os.Remove(path); err != nil {
 				fmt.Printf("%s:when DeleteOldFiles pendingMergeFId:%d Remove:%s err: %s\n", time.Now().Format("2006-01-02 15:04:05.000000"), pendingMergeFId, path, err.Error())
+			} else {
+				fmt.Printf("%s: free-memory DeleteOldFiles pendingMergeFId:%d Remove:%s\n", time.Now().Format("2006-01-02 15:04:05.000000"), pendingMergeFId, path)
 			}
 		}
 	}
