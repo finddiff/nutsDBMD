@@ -1209,6 +1209,14 @@ func (db *DB) cronFreeInvalid() {
 	}
 }
 
+func (db *DB) cronDeleteInvalidFiles() {
+	ticker := time.NewTicker(time.Duration(db.opt.InvalidFileDel) * time.Hour)
+	defer ticker.Stop()
+	for range ticker.C {
+		db.DeleteOldFiles(db.opt.InvalidFileDelCount)
+	}
+}
+
 func (db *DB) DeleteOldFiles(count int) error {
 	var (
 		pendingMergeFIds []int

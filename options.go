@@ -98,6 +98,10 @@ type Options struct {
 	//invalid key delete sleep time by secodes
 	InvalidDel int
 
+	//invalid file delete sleep time by Hour
+	InvalidFileDel      int
+	InvalidFileDelCount int
+
 	//Max ttl
 	MaxTtl uint32
 }
@@ -119,6 +123,8 @@ var DefaultOptions = func() Options {
 		HitMode:              CritBit,
 		Order:                8,
 		InvalidDel:           60,
+		InvalidFileDel:       4,
+		InvalidFileDelCount:  3,
 		MaxTtl:               Persistent,
 	}
 }()
