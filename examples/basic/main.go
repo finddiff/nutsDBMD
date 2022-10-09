@@ -26,9 +26,10 @@ func init() {
 	//	}
 	//}
 
-	fileDir := "D:\\user\\weiyc\\document\\GO\\src\\nutshttp\\examples\\nutsdb"
+	fileDir := "D:\\user\\weiyc\\document\\GO\\src\\nutshttp\\nutsdb"
 	opt := nutsdb.DefaultOptions
-	opt.HitMode = nutsdb.Skiplist
+	opt.MaxTtl = 172800
+	//opt.HitMode = nutsdb.Skiplist
 
 	db, _ = nutsdb.Open(
 		opt,
@@ -40,27 +41,30 @@ func init() {
 }
 
 func main() {
-	// insert
-	put()
-	// read
-	read()
+	//// insert
+	//put()
+	//// read
+	//read()
+	//
+	//// delete
+	//delete()
+	//// read
+	//read()
+	//
+	//// insert
+	//put()
+	//// read
+	//read()
+	//
+	//// update
+	//put2()
+	//// read
+	//read2()
 
-	// delete
-	delete()
-	// read
-	read()
+	//readall()
 
-	// insert
-	put()
-	// read
-	read()
-
-	// update
-	put2()
-	// read
-	read2()
-
-	readall()
+	db.DeleteAllOldFiles()
+	db.DeleteOldFiles(4)
 }
 
 func readall() {

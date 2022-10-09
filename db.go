@@ -1219,6 +1219,62 @@ func (db *DB) cronDeleteInvalidFiles() {
 	}
 }
 
+func (db *DB) DeleteAllOldFiles() error {
+	var (
+		pendingMergeFIds []int
+	)
+
+	if db.opt.EntryIdxMode == HintBPTSparseIdxMode {
+		return ErrNotSupportHintBPTSparseIdxMode
+	}
+
+	_, pendingMergeFIds = db.getMaxFileIDAndFileIDs()
+
+	valIDMap := make(map[int64]string)
+
+	if buckets, err := db.DataHitMemStruct.FindAllBuckets(); err == nil {
+		for _, bucketNow := range buckets {
+			db.DataHitMemStruct.Iterator(bucketNow, []byte{}, func(key []byte, value interface{}) bool {
+				if value == nil {
+					return true
+				}
+				r := value.(*Record)
+				if r.H.Meta.TTL == Persistent || r.H.Meta.TTL > db.opt.MaxTtl {
+					r.H.Meta.TTL = db.opt.MaxTtl
+				}
+				if r.IsExpired() || r.H.Meta.Flag == DataDeleteFlag {
+
+				} else {
+					valIDMap[r.H.FileID] = ""
+				}
+				return true
+			})
+
+		}
+	}
+
+	for _, pendingMergeFId := range pendingMergeFIds {
+		if _, ok := valIDMap[int64(pendingMergeFId)]; !ok {
+			path := db.getDataPath(int64(pendingMergeFId))
+			fmt.Printf("%s: free-memory DeleteAllOldFiles pendingMergeFId:%d Remove:%s\n", time.Now().Format("2006-01-02 15:04:05.000000"), pendingMergeFId, path)
+
+			//f, err := db.fm.getDataFile(path, db.opt.SegmentSize)
+			//_ = f.rwManager.Release()
+			//err = f.rwManager.Close()
+			//if err != nil {
+			//	return err
+			//}
+			//if err := os.Remove(path); err != nil {
+			//	fmt.Printf("%s:when DeleteAllOldFiles pendingMergeFId:%d Remove:%s err: %s\n", time.Now().Format("2006-01-02 15:04:05.000000"), pendingMergeFId, path, err.Error())
+			//} else {
+			//	fmt.Printf("%s: free-memory DeleteAllOldFiles pendingMergeFId:%d Remove:%s\n", time.Now().Format("2006-01-02 15:04:05.000000"), pendingMergeFId, path)
+			//}
+		}
+	}
+
+	return nil
+}
+
 func (db *DB) DeleteOldFiles(count int) error {
 	var (
 		pendingMergeFIds []int
