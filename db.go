@@ -1214,3 +1214,57 @@ func (db *DB) cronFreeInvalid() {
 		fmt.Printf("%s: free-memory cronFreeInvalid end bucketNow:%s listCount:%d invalidCount:%d validCount:%d lastKey:%s\n", time.Now().Format("2006-01-02 15:04:05.000000"), bucketNow, listCount, invalidCount, validCount, string(lastKey))
 	}
 }
+
+func (db *DB) DeleteOldFiles(count int) error {
+	var (
+		pendingMergeFIds []int
+	)
+
+	if db.opt.EntryIdxMode == HintBPTSparseIdxMode {
+		return ErrNotSupportHintBPTSparseIdxMode
+	}
+
+	_, pendingMergeFIds = db.getMaxFileIDAndFileIDs()
+	delcount := 0
+	needDeleteFile := false
+	for _, pendingMergeFId := range pendingMergeFIds {
+		delcount++
+		if delcount > count {
+			break
+		}
+		needDeleteFile = false
+
+		f, err := db.fm.getDataFile(db.getDataPath(int64(pendingMergeFId)), db.opt.SegmentSize)
+
+		if entrys, _, err := f.ReadAll(); err == nil {
+			needDeleteFile = true
+			for _, entry := range entrys {
+				// check if we have a new entry with same key and bucket
+				if r, _ := db.getRecordFromKey(entry.Meta.Bucket, entry.Key); r != nil {
+					if r.H.FileID == int64(pendingMergeFId) {
+						needDeleteFile = false
+						break
+					}
+				}
+			}
+		} else {
+			_ = f.rwManager.Release()
+			continue
+			fmt.Printf("%s:when DeleteOldFiles pendingMergeFId:%d ReadAll err: %s", time.Now().Format("2006-01-02 15:04:05.000000"), pendingMergeFId, err.Error())
+		}
+
+		if needDeleteFile {
+			path := db.getDataPath(int64(pendingMergeFId))
+			_ = f.rwManager.Release()
+			err = f.rwManager.Close()
+			if err != nil {
+				return err
+			}
+			if err := os.Remove(path); err != nil {
+				fmt.Printf("%s:when DeleteOldFiles pendingMergeFId:%d Remove:%s err: %s", time.Now().Format("2006-01-02 15:04:05.000000"), pendingMergeFId, path, err.Error())
+			}
+		}
+	}
+
+	return nil
+}
