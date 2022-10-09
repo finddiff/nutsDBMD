@@ -1256,19 +1256,19 @@ func (db *DB) DeleteAllOldFiles() error {
 	for _, pendingMergeFId := range pendingMergeFIds {
 		if _, ok := valIDMap[int64(pendingMergeFId)]; !ok {
 			path := db.getDataPath(int64(pendingMergeFId))
-			fmt.Printf("%s: free-memory DeleteAllOldFiles pendingMergeFId:%d Remove:%s\n", time.Now().Format("2006-01-02 15:04:05.000000"), pendingMergeFId, path)
+			//fmt.Printf("%s: free-memory DeleteAllOldFiles pendingMergeFId:%d Remove:%s\n", time.Now().Format("2006-01-02 15:04:05.000000"), pendingMergeFId, path)
 
-			//f, err := db.fm.getDataFile(path, db.opt.SegmentSize)
-			//_ = f.rwManager.Release()
-			//err = f.rwManager.Close()
-			//if err != nil {
-			//	return err
-			//}
-			//if err := os.Remove(path); err != nil {
-			//	fmt.Printf("%s:when DeleteAllOldFiles pendingMergeFId:%d Remove:%s err: %s\n", time.Now().Format("2006-01-02 15:04:05.000000"), pendingMergeFId, path, err.Error())
-			//} else {
-			//	fmt.Printf("%s: free-memory DeleteAllOldFiles pendingMergeFId:%d Remove:%s\n", time.Now().Format("2006-01-02 15:04:05.000000"), pendingMergeFId, path)
-			//}
+			f, err := db.fm.getDataFile(path, db.opt.SegmentSize)
+			_ = f.rwManager.Release()
+			err = f.rwManager.Close()
+			if err != nil {
+				return err
+			}
+			if err := os.Remove(path); err != nil {
+				fmt.Printf("%s:when DeleteAllOldFiles pendingMergeFId:%d Remove:%s err: %s\n", time.Now().Format("2006-01-02 15:04:05.000000"), pendingMergeFId, path, err.Error())
+			} else {
+				fmt.Printf("%s: free-memory DeleteAllOldFiles pendingMergeFId:%d Remove:%s\n", time.Now().Format("2006-01-02 15:04:05.000000"), pendingMergeFId, path)
+			}
 		}
 	}
 
