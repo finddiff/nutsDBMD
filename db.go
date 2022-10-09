@@ -238,6 +238,8 @@ func open(opt Options) (*DB, error) {
 
 	go db.cronFreeInvalid()
 
+	go db.cronDeleteInvalidFiles()
+
 	return db, nil
 }
 
