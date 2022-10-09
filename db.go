@@ -1102,6 +1102,11 @@ func (db *DB) getRecordFromKey(bucket, key []byte) (record *Record, err error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if r == nil {
+		return nil, nil
+	}
+
 	record = r.(*Record)
 	return
 	//}
