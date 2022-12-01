@@ -1143,7 +1143,7 @@ func (db *DB) deleteMemHitKeys(bucket string, keylist [][]byte) {
 func (db *DB) cronFreeInvalid() {
 	ticker := time.NewTicker(time.Duration(db.opt.InvalidDel) * time.Second)
 	defer ticker.Stop()
-	endbuckets := make(map[string]string)
+	//endbuckets := make(map[string]string)
 	bucketNow := ""
 	lastKey := []byte{}
 	batchSize := 10000 * db.opt.InvalidDel
@@ -1153,20 +1153,17 @@ func (db *DB) cronFreeInvalid() {
 	validCount := 0
 
 	for range ticker.C {
-		invalidList = [][]byte{}
-		listCount = 0
-		invalidCount = 0
-		validCount = 0
-
 		//查找已经失效的key
 		if buckets, err := db.DataHitMemStruct.FindAllBuckets(); err == nil {
-			if len(buckets) == len(endbuckets) {
-				endbuckets = make(map[string]string)
-			}
+			//if len(buckets) == len(endbuckets) {
+			//	endbuckets = make(map[string]string)
+			//}
 			for _, bucketNow = range buckets {
-				if _, ok := endbuckets[bucketNow]; ok {
-					continue
-				}
+
+				invalidList = [][]byte{}
+				listCount = 0
+				invalidCount = 0
+				validCount = 0
 
 				db.DataHitMemStruct.Iterator(bucketNow, lastKey, func(key []byte, value interface{}) bool {
 					lastKey = key
@@ -1184,9 +1181,6 @@ func (db *DB) cronFreeInvalid() {
 						}
 						invalidList = append(invalidList, key)
 						listCount++
-						//if invalidCount >= batchSize {
-						//	return false
-						//}
 					} else {
 						validCount++
 					}
@@ -1195,17 +1189,9 @@ func (db *DB) cronFreeInvalid() {
 
 				//使用写事务，删除失效key
 				if invalidCount > 0 {
-					if invalidCount < batchSize {
-						endbuckets[bucketNow] = ""
-						lastKey = []byte{}
-					}
 					db.deleteMemHitKeys(bucketNow, invalidList)
-				} else {
-					endbuckets[bucketNow] = ""
-					lastKey = []byte{}
 				}
 				fmt.Printf("%s: free-memory cronFreeInvalid end bucketNow:%s listCount:%d invalidCount:%d validCount:%d lastKey:%s\n", time.Now().Format("2006-01-02 15:04:05.000000"), bucketNow, listCount, invalidCount, validCount, string(lastKey))
-
 			}
 		}
 	}
