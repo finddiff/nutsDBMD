@@ -1193,21 +1193,21 @@ func (db *DB) cronFreeInvalid() {
 					return true
 				})
 
-			}
-		}
+				//使用写事务，删除失效key
+				if invalidCount > 0 {
+					if invalidCount < batchSize {
+						endbuckets[bucketNow] = ""
+						lastKey = []byte{}
+					}
+					db.deleteMemHitKeys(bucketNow, invalidList)
+				} else {
+					endbuckets[bucketNow] = ""
+					lastKey = []byte{}
+				}
+				fmt.Printf("%s: free-memory cronFreeInvalid end bucketNow:%s listCount:%d invalidCount:%d validCount:%d lastKey:%s\n", time.Now().Format("2006-01-02 15:04:05.000000"), bucketNow, listCount, invalidCount, validCount, string(lastKey))
 
-		//使用写事务，删除失效key
-		if invalidCount > 0 {
-			if invalidCount < batchSize {
-				endbuckets[bucketNow] = ""
-				lastKey = []byte{}
 			}
-			db.deleteMemHitKeys(bucketNow, invalidList)
-		} else {
-			endbuckets[bucketNow] = ""
-			lastKey = []byte{}
 		}
-		fmt.Printf("%s: free-memory cronFreeInvalid end bucketNow:%s listCount:%d invalidCount:%d validCount:%d lastKey:%s\n", time.Now().Format("2006-01-02 15:04:05.000000"), bucketNow, listCount, invalidCount, validCount, string(lastKey))
 	}
 }
 
