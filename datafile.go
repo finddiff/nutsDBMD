@@ -17,7 +17,7 @@ package nutsDBMD
 import (
 	"encoding/binary"
 	"errors"
-	"io/ioutil"
+	"os"
 )
 
 var (
@@ -51,7 +51,15 @@ type DataFile struct {
 func (df *DataFile) ReadAll() (elist []*Entry, lastOffset int64, err error) {
 	off := 0
 	lastOffset = 0
-	buf, err := ioutil.ReadFile(df.path)
+	var (
+		headBuff  []byte
+		bucketBuf []byte
+		keyBuf    []byte
+		valueBuf  []byte
+		buf       []byte
+	)
+
+	buf, err = os.ReadFile(df.path)
 	if err != nil {
 		return nil, lastOffset, err
 	}
@@ -61,7 +69,7 @@ func (df *DataFile) ReadAll() (elist []*Entry, lastOffset int64, err error) {
 		if int64(off+DataEntryHeaderSize) > Size {
 			break
 		}
-		headBuff := make([]byte, DataEntryHeaderSize)
+		headBuff = make([]byte, DataEntryHeaderSize)
 		copy(headBuff, buf[off:])
 		meta := readMetaData(headBuff)
 		e := &Entry{
@@ -74,17 +82,17 @@ func (df *DataFile) ReadAll() (elist []*Entry, lastOffset int64, err error) {
 			break
 		}
 		off += DataEntryHeaderSize
-		bucketBuf := make([]byte, meta.BucketSize)
+		bucketBuf = make([]byte, meta.BucketSize)
 		copy(bucketBuf, buf[off:])
 		e.Meta.Bucket = bucketBuf
 
 		off += int(meta.BucketSize)
-		keyBuf := make([]byte, meta.KeySize)
+		keyBuf = make([]byte, meta.KeySize)
 		copy(keyBuf, buf[off:])
 		e.Key = keyBuf
 
 		off += int(meta.KeySize)
-		valueBuf := make([]byte, meta.ValueSize)
+		valueBuf = make([]byte, meta.ValueSize)
 		copy(valueBuf, buf[off:])
 		e.Value = valueBuf
 
@@ -98,7 +106,14 @@ func (df *DataFile) ReadAll() (elist []*Entry, lastOffset int64, err error) {
 
 		lastOffset = int64(off)
 		elist = append(elist, e)
+
 	}
+
+	headBuff = nil
+	bucketBuf = nil
+	keyBuf = nil
+	valueBuf = nil
+	buf = nil
 
 	return
 }

@@ -347,13 +347,13 @@ func (db *DB) Merge() error {
 		}
 
 		pendingMergeEntries = []*Entry{}
+		elist, _, err := f.ReadAll()
+		if err != nil {
+			return err
+		}
 
-		for {
-			if entry, err := f.ReadAt(int(off)); err == nil {
-				if entry == nil {
-					break
-				}
-
+		for _, entry := range elist {
+			if entry != nil {
 				var skipEntry bool
 
 				if db.isFilterEntry(entry) {
@@ -411,6 +411,100 @@ func (db *DB) Merge() error {
 			db.isMerging = false
 			return fmt.Errorf("when merge err: %s", err)
 		}
+	}
+
+	return nil
+}
+
+func (db *DB) MergeTaget(fID int) error {
+	var (
+		off                 int64
+		pendingMergeFIds    []int
+		pendingMergeEntries []*Entry
+	)
+
+	if db.opt.EntryIdxMode == HintBPTSparseIdxMode {
+		return ErrNotSupportHintBPTSparseIdxMode
+	}
+
+	db.isMerging = true
+
+	_, pendingMergeFIds = db.getMaxFileIDAndFileIDs()
+
+	if len(pendingMergeFIds) < 2 {
+		db.isMerging = false
+		return errors.New("the number of files waiting to be merged is at least 2")
+	}
+
+	for _, pendingMergeFId := range pendingMergeFIds {
+		if pendingMergeFId != fID {
+			continue
+		}
+
+		defer runtime.GC()
+
+		fmt.Printf("%s: MergeTaget fID:%d \n", time.Now().Format("2006-01-02 15:04:05.000000"), fID)
+
+		off = 0
+		f, err := db.fm.getDataFile(db.getDataPath(int64(pendingMergeFId)), db.opt.SegmentSize)
+		if err != nil {
+			db.isMerging = false
+			return err
+		}
+
+		pendingMergeEntries = []*Entry{}
+		elist, _, err := f.ReadAll()
+		if err != nil {
+			return err
+		}
+
+		for _, entry := range elist {
+
+			var skipEntry bool
+
+			if db.isFilterEntry(entry) {
+				skipEntry = true
+			}
+
+			// check if we have a new entry with same key and bucket
+			if r, _ := db.getRecordFromKey(entry.Meta.Bucket, entry.Key); r != nil && !skipEntry {
+				if r.H.FileID > int64(pendingMergeFId) {
+					skipEntry = true
+				} else if r.H.FileID == int64(pendingMergeFId) && r.H.DataPos > uint64(off) {
+					skipEntry = true
+				}
+			}
+
+			off += entry.Size()
+
+			if skipEntry {
+				off += entry.Size()
+				if off >= db.opt.SegmentSize {
+					break
+				}
+				continue
+			}
+
+			pendingMergeEntries = append(pendingMergeEntries, entry)
+		}
+
+		fmt.Printf("%s: MergeTaget len(pendingMergeEntries):%d \n", time.Now().Format("2006-01-02 15:04:05.000000"), len(pendingMergeEntries))
+		if err := db.reWriteData(pendingMergeEntries); err != nil {
+			_ = f.rwManager.Release()
+			return err
+		}
+
+		path := db.getDataPath(int64(pendingMergeFId))
+		_ = f.rwManager.Release()
+		err = f.rwManager.Close()
+		if err != nil {
+			return err
+		}
+		if err := os.Remove(path); err != nil {
+			db.isMerging = false
+			return fmt.Errorf("when merge err: %s", err)
+		}
+		fmt.Printf("%s: MergeTaget Remove:%s \n", time.Now().Format("2006-01-02 15:04:05.000000"), path)
 	}
 
 	return nil
@@ -523,7 +617,6 @@ func (db *DB) parseDataFiles(dataFileIds []int) (unconfirmedRecords []*Record, e
 	db.committedTxIds = make(map[uint64]struct{})
 
 	unconfirmedRecordsMap := make(map[uint64][]*Record)
-
 	for _, dataID := range dataFileIds {
 		if db.opt.LoadFileStartNum != -1 && dataID < db.opt.LoadFileStartNum {
 			continue
@@ -603,57 +696,6 @@ func (db *DB) parseDataFiles(dataFileIds []int) (unconfirmedRecords []*Record, e
 
 	return
 }
-
-//func (db *DB) buildBPTreeRootIdxes(dataFileIds []int) error {
-//	var off int64
-//
-//	dataFileIdsSize := len(dataFileIds)
-//
-//	if dataFileIdsSize == 1 {
-//		return nil
-//	}
-//
-//	for i := 0; i < len(dataFileIds[0:dataFileIdsSize-1]); i++ {
-//		off = 0
-//		path := db.getBPTRootPath(int64(dataFileIds[i]))
-//		fd, err := os.OpenFile(filepath.Clean(path), os.O_CREATE|os.O_RDWR, 0644)
-//		if err != nil {
-//			return err
-//		}
-//
-//		for {
-//			bs, err := ReadBPTreeRootIdxAt(fd, off)
-//			if err == io.EOF || err == nil && bs == nil {
-//				break
-//			}
-//			if err != nil {
-//				return err
-//			}
-//
-//			if err == nil && bs != nil {
-//				db.BPTreeRootIdxes = append(db.BPTreeRootIdxes, bs)
-//				off += bs.Size()
-//			}
-//
-//		}
-//
-//		fd.Close()
-//	}
-//
-//	db.committedTxIds = nil
-//
-//	return nil
-//}
-
-//func (db *DB) IsExpired(r *Record) bool {
-//	if r.H.Meta.TTL == Persistent || r.H.Meta.TTL > db.opt.MaxTtl {
-//		r.H.Meta.TTL = db.opt.MaxTtl
-//	}
-//	if r.H.Meta.TTL > 0 && uint64(r.H.Meta.TTL)+r.E.Meta.Timestamp > uint64(db.StartTime) || r.H.Meta.TTL == Persistent {
-//		return false
-//	}
-//	return true
-//}
 
 func (db *DB) buildBPTreeIdx(bucket string, r *Record) error {
 	if r.H.Meta.TTL == Persistent || r.H.Meta.TTL > db.opt.MaxTtl {
@@ -1059,13 +1101,13 @@ func (db *DB) reWriteData(pendingMergeEntries []*Entry) error {
 		return err
 	}
 
-	dataFile, err := db.fm.getDataFile(db.getDataPath(db.MaxFileID+1), db.opt.SegmentSize)
-	if err != nil {
-		db.isMerging = false
-		return err
-	}
-	db.ActiveFile = dataFile
-	db.MaxFileID++
+	//dataFile, err := db.fm.getDataFile(db.getDataPath(db.MaxFileID+1), db.opt.SegmentSize)
+	//if err != nil {
+	//	db.isMerging = false
+	//	return err
+	//}
+	//db.ActiveFile = dataFile
+	//db.MaxFileID++
 
 	for _, e := range pendingMergeEntries {
 		err := tx.put(string(e.Meta.Bucket), e.Key, e.Value, e.Meta.TTL, e.Meta.Flag, e.Meta.Timestamp, e.Meta.Ds)

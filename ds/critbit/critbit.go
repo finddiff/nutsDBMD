@@ -5,8 +5,8 @@
 // byte or not. This is based on [2] and extends it to support a null byte in a
 // byte sequence.
 //
-//  [1]: http://cr.yp.to/critbit.html (definition)
-//  [2]: https://github.com/agl/critbit (C implementation and document)
+//	[1]: http://cr.yp.to/critbit.html (definition)
+//	[2]: https://github.com/agl/critbit (C implementation and document)
 package critbit
 
 import (
@@ -140,11 +140,11 @@ func (t *Tree) findInsertPos(k []byte, pos int, other uint8) (*node, node) {
 // succeeded while if not, it updates the key's value and returns its previous
 // value and true when it succeeded.
 func (t *Tree) Insert(k []byte, v interface{}) (interface{}, bool) {
-	key := append([]byte{}, k...)
+	//key := append([]byte{}, k...)
 
 	n, _ := t.lookup(k)
 	if n == nil { // only happens when t.root is nil
-		t.root = &eNode{key: key, value: v}
+		t.root = &eNode{key: k, value: v}
 		t.size++
 		return nil, true
 	}
@@ -163,7 +163,7 @@ func (t *Tree) Insert(k []byte, v interface{}) (interface{}, bool) {
 	di := t.direction(n.key, pos, other)
 
 	newn := &iNode{pos: pos, other: other}
-	newn.children[1-di] = &eNode{key: key, value: v}
+	newn.children[1-di] = &eNode{key: k, value: v}
 
 	p, child := t.findInsertPos(k, pos, other)
 	newn.children[di] = child
@@ -202,13 +202,17 @@ func (t *Tree) Delete(k []byte) (interface{}, bool) {
 		return nil, false
 	}
 	t.size--
+	value := n.value
+	n.value = nil
+	n.key = nil
+
 	if q == nil {
 		t.root = nil
-		return n.value, true
+		return value, true
 	}
 	tmp := (*q).(*iNode)
 	*q = tmp.children[1-di]
-	return n.value, true
+	return value, true
 }
 
 // Clear removes all elements in the tree. If it removes something, it returns
