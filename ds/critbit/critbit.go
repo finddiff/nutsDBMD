@@ -335,6 +335,35 @@ func walk(n *node, key []byte, seek *bool, handle func([]byte, interface{}) bool
 	}
 }
 
+func (t *Trie) Walk_all(handle func(key []byte, value interface{}) bool) bool {
+	if t.size == 0 {
+		return true
+	}
+
+	return walk_start(&t.root, handle)
+
+	return true
+}
+
+func walk_start(n *node, handle func([]byte, interface{}) bool) bool {
+	if n.external != nil {
+		if !handle(n.external.key, n.external.value) {
+			return false
+		}
+	}
+
+	if n.internal != nil {
+		if !walk_start(&n.internal.child[0], handle) {
+			return false
+		}
+		if !walk_start(&n.internal.child[1], handle) {
+			return false
+		}
+	}
+
+	return true
+}
+
 // dump tree. (for debugging)
 func (t *Trie) Dump(w io.Writer) {
 	if t.root.internal == nil && t.root.external == nil {

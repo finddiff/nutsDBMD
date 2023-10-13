@@ -1192,7 +1192,8 @@ func (db *DB) cronFreeInvalid() {
 	//endbuckets := make(map[string]string)
 	bucketNow := ""
 	lastKey := []byte{}
-	batchSize := 10000 * db.opt.InvalidDel
+	lastBucket := ""
+	//batchSize := 10000 * db.opt.InvalidDel
 	invalidList := [][]byte{}
 	listCount := 0
 	invalidCount := 0
@@ -1210,8 +1211,13 @@ func (db *DB) cronFreeInvalid() {
 				listCount = 0
 				invalidCount = 0
 				validCount = 0
+				if lastBucket != bucketNow {
+					lastBucket = bucketNow
+					lastKey = []byte{}
+				}
 
 				db.DataHitMemStruct.Iterator(bucketNow, lastKey, func(key []byte, value interface{}) bool {
+					listCount++
 					lastKey = key
 					if value == nil {
 						return false
@@ -1222,13 +1228,9 @@ func (db *DB) cronFreeInvalid() {
 					}
 					if r.IsExpired() || r.H.Meta.Flag == DataDeleteFlag {
 						invalidCount++
-						if listCount >= batchSize {
-							return true
-						}
 						invalidList = append(invalidList, key)
-						listCount++
 					} else {
-						validCount++
+						validCount++q
 					}
 					return true
 				})
