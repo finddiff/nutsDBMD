@@ -473,6 +473,10 @@ func (db *DB) MergeTaget(fID int) error {
 				} else if r.H.FileID == int64(pendingMergeFId) && r.H.DataPos > uint64(off) {
 					skipEntry = true
 				}
+
+				if r.IsExpired() || r.H.Meta.Flag == DataDeleteFlag {
+					skipEntry = true
+				}
 			}
 
 			off += entry.Size()

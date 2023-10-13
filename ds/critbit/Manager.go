@@ -12,7 +12,7 @@ type Manager struct {
 func (m *Manager) Iterator(bucket string, startKey []byte, fn Iterator.ItemIterator) error {
 	//TODO implement me
 	if tree, ok := m.CritbitMap[bucket]; ok {
-		tree.Walk(startKey, func(key []byte, value interface{}) bool {
+		tree.Walk(nil, func(key []byte, value interface{}) bool {
 			return !fn(key, value)
 		})
 	}
@@ -105,7 +105,7 @@ func (m *Manager) GetAll(bucket string) ([]interface{}, error) {
 	//TODO implement me
 	if tree, ok := m.CritbitMap[bucket]; ok {
 		resultlist := make([]interface{}, 0)
-		tree.Walk([]byte{}, func(key []byte, value interface{}) bool {
+		tree.Walk(nil, func(key []byte, value interface{}) bool {
 			resultlist = append(resultlist, value)
 			return false
 		})
