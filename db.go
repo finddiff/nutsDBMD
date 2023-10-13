@@ -1202,9 +1202,6 @@ func (db *DB) cronFreeInvalid() {
 	for range ticker.C {
 		//查找已经失效的key
 		if buckets, err := db.DataHitMemStruct.FindAllBuckets(); err == nil {
-			//if len(buckets) == len(endbuckets) {
-			//	endbuckets = make(map[string]string)
-			//}
 			for _, bucketNow = range buckets {
 
 				invalidList = [][]byte{}
