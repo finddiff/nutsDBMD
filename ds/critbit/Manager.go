@@ -6,13 +6,13 @@ import (
 )
 
 type Manager struct {
-	CritbitMap map[string]*Tree
+	CritbitMap map[string]*Trie
 }
 
 func (m *Manager) Iterator(bucket string, startKey []byte, fn Iterator.ItemIterator) error {
 	//TODO implement me
 	if tree, ok := m.CritbitMap[bucket]; ok {
-		tree.Walk(func(key []byte, value interface{}) bool {
+		tree.Walk(startKey, func(key []byte, value interface{}) bool {
 			return !fn(key, value)
 		})
 	}
@@ -30,11 +30,11 @@ func (m *Manager) FindAllBuckets() ([]string, error) {
 
 func (m *Manager) FindStart(bucket string) (interface{}, error) {
 	//TODO implement me
-	if tree, ok := m.CritbitMap[bucket]; ok {
-		if _, value, ok := tree.Minimum(); ok {
-			return value, nil
-		}
-	}
+	//if tree, ok := m.CritbitMap[bucket]; ok {
+	//	if _, value, ok := tree.Minimum(); ok {
+	//		return value, nil
+	//	}
+	//}
 	return nil, nil
 }
 
@@ -55,7 +55,7 @@ func (m *Manager) PrefixSearchScan(bucket string, prefix []byte, reg string, off
 		count := 0
 		endcount := offsetNum + limitNum
 		re := regexp.MustCompile(reg)
-		tree.WalkPrefix(prefix, func(key []byte, value interface{}) bool {
+		tree.Allprefixed(prefix, func(key []byte, value interface{}) bool {
 			if count >= offsetNum && count < endcount && re.Match(key) {
 				resultlist = append(resultlist, value)
 			} else {
@@ -72,18 +72,20 @@ func (m *Manager) PrefixSearchScan(bucket string, prefix []byte, reg string, off
 
 func NewManager() *Manager {
 	return &Manager{
-		CritbitMap: map[string]*Tree{},
+		CritbitMap: map[string]*Trie{},
 	}
 }
 
 func (m *Manager) Set(bucket string, key []byte, value interface{}) error {
 	//var sl *Tree
 	if _, ok := m.CritbitMap[bucket]; !ok {
-		m.CritbitMap[bucket] = New()
+		m.CritbitMap[bucket] = NewTrie()
 	}
-	if _, ok := m.CritbitMap[bucket].Insert(key, value); ok {
-		return nil
-	}
+
+	m.CritbitMap[bucket].Set(key, value)
+	//if _, ok := m.CritbitMap[bucket].Set(key, value); ok {
+	//	return nil
+	//}
 	return nil
 }
 
@@ -103,7 +105,7 @@ func (m *Manager) GetAll(bucket string) ([]interface{}, error) {
 	//TODO implement me
 	if tree, ok := m.CritbitMap[bucket]; ok {
 		resultlist := make([]interface{}, 0)
-		tree.Walk(func(key []byte, value interface{}) bool {
+		tree.Walk([]byte{}, func(key []byte, value interface{}) bool {
 			resultlist = append(resultlist, value)
 			return false
 		})
@@ -131,7 +133,7 @@ func (m *Manager) PrefixScan(bucket string, prefix []byte, offsetNum int, limitN
 		resultlist := make([]interface{}, 0)
 		count := 0
 		endcount := offsetNum + limitNum
-		tree.WalkPrefix(prefix, func(key []byte, value interface{}) bool {
+		tree.Allprefixed(prefix, func(key []byte, value interface{}) bool {
 			if count >= offsetNum && count < endcount {
 				resultlist = append(resultlist, value)
 			} else {

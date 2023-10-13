@@ -1,377 +1,393 @@
-// Package critbit implements Crit-Bit tree for byte sequences.
-//
-// Crit-Bit tree [1] is fast, memory efficient and a variant of PATRICIA trie.
-// This implementation can be used for byte sequences if it includes a null
-// byte or not. This is based on [2] and extends it to support a null byte in a
-// byte sequence.
-//
-//	[1]: http://cr.yp.to/critbit.html (definition)
-//	[2]: https://github.com/agl/critbit (C implementation and document)
 package critbit
 
 import (
 	"bytes"
-	"github.com/finddiff/nutsDBMD/ds/Iterator"
+	"encoding/hex"
+	"fmt"
+	"io"
+	"os"
+	"strconv"
 )
 
-type nodeType int
+// The matrix of most significant bit
+var msbMatrix [256]byte
 
-const (
-	internal nodeType = iota
-	external
-)
-
-type node interface {
-	kind() nodeType
+func buildMsbMatrix() {
+	for i := 0; i < len(msbMatrix); i++ {
+		b := byte(i)
+		b |= b >> 1
+		b |= b >> 2
+		b |= b >> 4
+		msbMatrix[i] = b &^ (b >> 1)
+	}
 }
 
-type iNode struct {
-	children [2]node
-	pos      int
-	other    uint8
+type node struct {
+	internal *internal
+	external *external
 }
 
-func (n *iNode) kind() nodeType { return internal }
+type internal struct {
+	child  [2]node
+	offset int
+	bit    byte
+	cont   bool // if true, key of child[1] contains key of child[0]
+}
 
-type eNode struct {
+type external struct {
 	key   []byte
 	value interface{}
 }
 
-func (n *eNode) kind() nodeType { return external }
+// finding the critical bit.
+func (n *external) criticalBit(key []byte) (offset int, bit byte, cont bool) {
+	nlen := len(n.key)
+	klen := len(key)
+	mlen := nlen
+	if nlen > klen {
+		mlen = klen
+	}
 
-// Tree represents a critbit tree.
-type Tree struct {
+	// find first differing byte and bit
+	for offset = 0; offset < mlen; offset++ {
+		if a, b := key[offset], n.key[offset]; a != b {
+			bit = msbMatrix[a^b]
+			return
+		}
+	}
+
+	if nlen < klen {
+		bit = msbMatrix[key[offset]]
+	} else if nlen > klen {
+		bit = msbMatrix[n.key[offset]]
+	} else {
+		// two keys are equal
+		offset = -1
+	}
+	return offset, bit, true
+}
+
+// calculate direction.
+func (n *internal) direction(key []byte) int {
+	if n.offset < len(key) && (key[n.offset]&n.bit != 0 || n.cont) {
+		return 1
+	}
+	return 0
+}
+
+// Crit-bit Tree
+type Trie struct {
 	root node
 	size int
 }
 
-// New returns an empty tree.
-func New() *Tree {
-	return &Tree{}
+// searching the tree.
+func (t *Trie) search(key []byte) *node {
+	n := &t.root
+	for n.internal != nil {
+		n = &n.internal.child[n.internal.direction(key)]
+	}
+	return n
 }
 
-// Len returns a number of elements in the tree.
-func (t *Tree) Len() int {
-	return t.size
-}
-
-func (t *Tree) direction(k []byte, pos int, other uint8) int {
-	var c uint8
-	if pos < len(k) {
-		c = k[pos]
-	} else if other == 0xff {
-		return 0
-	}
-	return (1 + int(other|c)) >> 8
-}
-
-func (t *Tree) lookup(k []byte) (*eNode, *iNode) {
-	if t.root == nil {
-		return nil, nil
-	}
-
-	var top *iNode
-	p := t.root
-	for {
-		switch n := p.(type) {
-		case *eNode:
-			return n, top
-		case *iNode:
-			if top == nil || n.pos < len(k) {
-				top = n
-			}
-			p = n.children[t.direction(k, n.pos, n.other)]
-		}
-	}
-}
-
-// Get searches a given key from the tree. If the key exists in the tree, it
-// returns its value and true. If not, it returns nil and false.
-func (t *Tree) Get(k []byte) (interface{}, bool) {
-	n, _ := t.lookup(k)
-	if n != nil && bytes.Equal(k, n.key) {
-		return n.value, true
-	}
-	return nil, false
-}
-
-func (t *Tree) findFirstDiffByte(k []byte, n *eNode) (pos int, other uint8, match bool) {
-	var byt, b byte
-	for pos = 0; pos < len(k); pos++ {
-		b = k[pos]
-		byt = 0
-		if pos < len(n.key) {
-			byt = n.key[pos]
-		}
-		if byt != b {
-			return pos, byt ^ b, false
-		}
-	}
-	if pos < len(n.key) {
-		return pos, n.key[pos], false
-	} else if pos == len(n.key) {
-		return 0, 0, true
-	}
-	return pos - 1, 0, false
-}
-
-func (t *Tree) findInsertPos(k []byte, pos int, other uint8) (*node, node) {
-	p := &t.root
-	for {
-		switch n := (*p).(type) {
-		case *eNode:
-			return p, n
-		case *iNode:
-			if n.pos > pos {
-				return p, n
-			}
-			if n.pos == pos && n.other > other {
-				return p, n
-			}
-			p = &n.children[t.direction(k, n.pos, n.other)]
-		}
-	}
-}
-
-// Insert adds or updates a given key to the tree and returns its previous
-// value and if anything was set or not. If there is the key in the tree, it
-// adds the key and the value to the tree and returns nil and true when it
-// succeeded while if not, it updates the key's value and returns its previous
-// value and true when it succeeded.
-func (t *Tree) Insert(k []byte, v interface{}) (interface{}, bool) {
-	//key := append([]byte{}, k...)
-
-	n, _ := t.lookup(k)
-	if n == nil { // only happens when t.root is nil
-		t.root = &eNode{key: k, value: v}
-		t.size++
-		return nil, true
-	}
-
-	pos, other, match := t.findFirstDiffByte(k, n)
-	if match {
-		orig := n.value
-		n.value = v
-		return orig, true
-	}
-
-	other |= other >> 1
-	other |= other >> 2
-	other |= other >> 4
-	other = ^(other &^ (other >> 1))
-	di := t.direction(n.key, pos, other)
-
-	newn := &iNode{pos: pos, other: other}
-	newn.children[1-di] = &eNode{key: k, value: v}
-
-	p, child := t.findInsertPos(k, pos, other)
-	newn.children[di] = child
-	*p = newn
-
-	t.size++
-	return nil, true
-}
-
-func (t *Tree) findDeletePos(k []byte) (*node, *eNode, int) {
-	if t.root == nil {
-		return nil, nil, 0
-	}
-
-	var di int
-	var q *node
-	p := &t.root
-	for {
-		switch n := (*p).(type) {
-		case *eNode:
-			return q, n, di
-		case *iNode:
-			di = t.direction(k, n.pos, n.other)
-			q = p
-			p = &n.children[di]
-		}
-	}
-}
-
-// Delete removes a given key and its value from the tree. If it succeeded, it
-// returns the key's previous value and true while if not, it returns nil and
-// false. On an empty tree, it always fails.
-func (t *Tree) Delete(k []byte) (interface{}, bool) {
-	q, n, di := t.findDeletePos(k)
-	if n == nil || !bytes.Equal(k, n.key) {
-		return nil, false
-	}
-	t.size--
-	value := n.value
-	n.value = nil
-	n.key = nil
-
-	if q == nil {
-		t.root = nil
-		return value, true
-	}
-	tmp := (*q).(*iNode)
-	*q = tmp.children[1-di]
-	return value, true
-}
-
-// Clear removes all elements in the tree. If it removes something, it returns
-// true while the tree is empty and there is nothing to remove, it returns
-// false.
-func (t *Tree) Clear() bool {
-	if t.root != nil {
-		t.root = nil
-		t.size = 0
+// membership testing.
+func (t *Trie) Contains(key []byte) bool {
+	if n := t.search(key); n.external != nil && bytes.Equal(n.external.key, key) {
 		return true
 	}
 	return false
 }
 
-// Minimum searches a key from the tree in lexicographic order and returns the
-// first one and its value. If it found such a key, it also returns true as the
-// bool value while if not, it returns false as it.
-func (t *Tree) Minimum() ([]byte, interface{}, bool) {
-	if t.root == nil {
-		return nil, nil, false
+// get member.
+// if `key` is in Trie, `ok` is true.
+func (t *Trie) Get(key []byte) (value interface{}, ok bool) {
+	if n := t.search(key); n.external != nil && bytes.Equal(n.external.key, key) {
+		return n.external.value, true
 	}
-
-	p := t.root
-	for {
-		switch n := p.(type) {
-		case *eNode:
-			return n.key, n.value, true
-		case *iNode:
-			p = n.children[0]
-		}
-	}
+	return
 }
 
-// Maximum searches a key from the tree in lexicographic order and returns the
-// last one and its value. If it found such a key, it also returns true as the
-// bool value while if not, it returns false as it.
-func (t *Tree) Maximum() ([]byte, interface{}, bool) {
-	if t.root == nil {
-		return nil, nil, false
+// insert into the tree (replaceable).
+func (t *Trie) insert(key []byte, value interface{}, replace bool) bool {
+	// an empty tree
+	if t.size == 0 {
+		t.root.external = &external{
+			key:   key,
+			value: value,
+		}
+		t.size = 1
+		return true
 	}
 
-	p := t.root
-	for {
-		switch n := p.(type) {
-		case *eNode:
-			return n.key, n.value, true
-		case *iNode:
-			p = n.children[1]
+	n := t.search(key)
+	newOffset, newBit, newCont := n.external.criticalBit(key)
+
+	// already exists in the tree
+	if newOffset == -1 {
+		if replace {
+			n.external.value = value
+			return true
 		}
+		return false
 	}
+
+	// allocate new node
+	newNode := &internal{
+		offset: newOffset,
+		bit:    newBit,
+		cont:   newCont,
+	}
+	direction := newNode.direction(key)
+	newNode.child[direction].external = &external{
+		key:   key,
+		value: value,
+	}
+
+	// insert new node
+	wherep := &t.root
+	for in := wherep.internal; in != nil; in = wherep.internal {
+		if in.offset > newOffset || (in.offset == newOffset && in.bit < newBit) {
+			break
+		}
+		wherep = &in.child[in.direction(key)]
+	}
+
+	if wherep.internal != nil {
+		newNode.child[1-direction].internal = wherep.internal
+	} else {
+		newNode.child[1-direction].external = wherep.external
+		wherep.external = nil
+	}
+	wherep.internal = newNode
+	t.size += 1
+	return true
 }
 
-func (t *Tree) longestPrefix(p node, prefix []byte) ([]byte, interface{}, bool) {
-	if p == nil {
-		return nil, nil, false
-	}
-	var di int
-	var c uint8
-	switch n := p.(type) {
-	case *eNode:
-		if bytes.HasPrefix(prefix, n.key) {
-			return n.key, n.value, true
-		}
-	case *iNode:
-		c = 0
-		if n.pos < len(prefix) {
-			c = prefix[n.pos]
-		}
-		di = (1 + int(n.other|c)) >> 8
+// insert into the tree.
+// if `key` is alredy in Trie, return false.
+func (t *Trie) Insert(key []byte, value interface{}) bool {
+	return t.insert(key, value, false)
+}
 
-		if k, v, ok := t.longestPrefix(n.children[di], prefix); ok {
+// set into the tree.
+func (t *Trie) Set(key []byte, value interface{}) {
+	t.insert(key, value, true)
+}
+
+// deleting elements.
+// if `key` is in Trie, `ok` is true.
+func (t *Trie) Delete(key []byte) (value interface{}, ok bool) {
+	// an empty tree
+	if t.size == 0 {
+		return
+	}
+
+	var direction int
+	var whereq *node // pointer to the grandparent
+	var wherep *node = &t.root
+
+	// finding the best candidate to delete
+	for in := wherep.internal; in != nil; in = wherep.internal {
+		direction = in.direction(key)
+		whereq = wherep
+		wherep = &in.child[direction]
+	}
+
+	// checking that we have the right element
+	if !bytes.Equal(wherep.external.key, key) {
+		return
+	}
+	value = wherep.external.value
+	ok = true
+
+	// removing the node
+	if whereq == nil {
+		wherep.external = nil
+	} else {
+		othern := whereq.internal.child[1-direction]
+		whereq.internal = othern.internal
+		whereq.external = othern.external
+	}
+	t.size -= 1
+	return
+}
+
+// clearing a tree.
+func (t *Trie) Clear() {
+	t.root.internal = nil
+	t.root.external = nil
+	t.size = 0
+}
+
+// return the number of key in a tree.
+func (t *Trie) Size() int {
+	return t.size
+}
+
+// fetching elements with a given prefix.
+// handle is called with arguments key and value (if handle returns `false`, the iteration is aborted)
+func (t *Trie) Allprefixed(prefix []byte, handle func(key []byte, value interface{}) bool) bool {
+	// an empty tree
+	if t.size == 0 {
+		return true
+	}
+
+	// walk tree, maintaining top pointer
+	p := &t.root
+	top := p
+	if len(prefix) > 0 {
+		for q := p.internal; q != nil; q = p.internal {
+			p = &q.child[q.direction(prefix)]
+			if q.offset < len(prefix) {
+				top = p
+			}
+		}
+
+		// check prefix
+		if !bytes.HasPrefix(p.external.key, prefix) {
+			return true
+		}
+	}
+
+	return allprefixed(top, handle)
+}
+
+func allprefixed(n *node, handle func([]byte, interface{}) bool) bool {
+	if n.internal != nil {
+		// dealing with an internal node while recursing
+		for i := 0; i < 2; i++ {
+			if !allprefixed(&n.internal.child[i], handle) {
+				return false
+			}
+		}
+	} else {
+		// dealing with an external node while recursing
+		return handle(n.external.key, n.external.value)
+	}
+	return true
+}
+
+// Search for the longest matching key from the beginning of the given key.
+// if `key` is in Trie, `ok` is true.
+func (t *Trie) LongestPrefix(given []byte) (key []byte, value interface{}, ok bool) {
+	// an empty tree
+	if t.size == 0 {
+		return
+	}
+	return longestPrefix(&t.root, given)
+}
+
+func longestPrefix(n *node, key []byte) ([]byte, interface{}, bool) {
+	if n.internal != nil {
+		direction := n.internal.direction(key)
+		if k, v, ok := longestPrefix(&n.internal.child[direction], key); ok {
 			return k, v, ok
-		} else if di == 1 {
-			return t.longestPrefix(n.children[0], prefix)
+		}
+		if direction == 1 {
+			return longestPrefix(&n.internal.child[0], key)
+		}
+	} else {
+		if bytes.HasPrefix(key, n.external.key) {
+			return n.external.key, n.external.value, true
 		}
 	}
 	return nil, nil, false
 }
 
-// LongestPrefix searches the longest key which is included in a given key and
-// returns the found key and its value. For example, if there are "f", "fo",
-// "foobar" in the tree and "foo" is given, it returns "fo". If it found such a
-// key, it returns true as the bool value while if not, it returns false as it.
-func (t *Tree) LongestPrefix(prefix []byte) ([]byte, interface{}, bool) {
-	return t.longestPrefix(t.root, prefix)
+// Iterating elements from a given start key.
+// handle is called with arguments key and value (if handle returns `false`, the iteration is aborted)
+func (t *Trie) Walk(start []byte, handle func(key []byte, value interface{}) bool) bool {
+	if t.size == 0 {
+		return true
+	}
+	var seek bool
+	if start != nil {
+		seek = true
+	}
+	return walk(&t.root, start, &seek, handle)
 }
 
-// WalkFn is used at walking a tree. It receives a key and its value of each
-// elements which a walk function gives. If it returns true, a walk function
-// should be terminated at there.
-//type WalkFn func(k []byte, v interface{}) bool
-
-func (t *Tree) walk(p node, fn Iterator.ItemIterator) bool {
-	if p == nil {
-		return false
-	}
-	switch n := p.(type) {
-	case *eNode:
-		return fn(n.key, n.value)
-	case *iNode:
-		for i := 0; i < 2; i++ {
-			if t.walk(n.children[i], fn) {
-				return true
+func walk(n *node, key []byte, seek *bool, handle func([]byte, interface{}) bool) bool {
+	if n.internal != nil {
+		var direction int
+		if *seek {
+			direction = n.internal.direction(key)
+		}
+		if !walk(&n.internal.child[direction], key, seek, handle) {
+			return false
+		}
+		if !(*seek) && direction == 0 {
+			// iteration another side
+			return walk(&n.internal.child[1], key, seek, handle)
+		}
+		return true
+	} else {
+		if *seek {
+			if bytes.Equal(n.external.key, key) {
+				// seek completed
+				*seek = false
+			} else {
+				// key is not in Trie
+				return false
 			}
 		}
+		return handle(n.external.key, n.external.value)
 	}
-	return false
 }
 
-// Walk walks whole the tree and call a given function with each element's key
-// and value. If the function returns true, the walk is terminated at there.
-func (t *Tree) Walk(fn Iterator.ItemIterator) {
-	t.walk(t.root, fn)
-}
-
-// WalkPrefix walks the tree under a given prefix and call a given function
-// with each element's key and value. For example, the tree has "f", "fo",
-// "foob", "foobar" and "foo" is given, it visits "foob" and "foobar" elements.
-// If the function returns true, the walk is terminated at there.
-func (t *Tree) WalkPrefix(prefix []byte, fn Iterator.ItemIterator) {
-	n, top := t.lookup(prefix)
-	if n == nil || !bytes.HasPrefix(n.key, prefix) {
+// dump tree. (for debugging)
+func (t *Trie) Dump(w io.Writer) {
+	if t.root.internal == nil && t.root.external == nil {
 		return
 	}
-	wrapper := func(k []byte, v interface{}) bool {
-		if bytes.HasPrefix(k, prefix) {
-			return fn(k, v)
-		}
-		return false
+	if w == nil {
+		w = os.Stdout
 	}
-	t.walk(top, wrapper)
+	dump(w, &t.root, true, "")
 }
 
-func (t *Tree) walkPath(p node, path []byte, fn Iterator.ItemIterator) bool {
-	if p == nil {
-		return false
+func dump(w io.Writer, n *node, right bool, prefix string) {
+	var ownprefix string
+	if right {
+		ownprefix = prefix
+	} else {
+		ownprefix = prefix[:len(prefix)-1] + "`"
 	}
-	var di int
-	switch n := p.(type) {
-	case *eNode:
-		if bytes.HasPrefix(path, n.key) {
-			return fn(n.key, n.value)
-		}
-	case *iNode:
-		di = t.direction(path, n.pos, n.other)
-		if di == 1 {
-			if t.walkPath(n.children[0], path, fn) {
-				return true
+
+	if in := n.internal; in != nil {
+		fmt.Fprintf(w, "%s-- off=%d, bit=%08b(%02x), cont=%v\n", ownprefix, in.offset, in.bit, in.bit, in.cont)
+		for i := 0; i < 2; i++ {
+			var nextprefix string
+			switch i {
+			case 0:
+				nextprefix = prefix + " |"
+				right = true
+			case 1:
+				nextprefix = prefix + "  "
+				right = false
 			}
+			dump(w, &in.child[i], right, nextprefix)
 		}
-		return t.walkPath(n.children[di], path, fn)
+	} else {
+		fmt.Fprintf(w, "%s-- key=%d (%s)\n", ownprefix, n.external.key, key2str(n.external.key))
 	}
-	return false
+	return
 }
 
-// WalkPath walks the tree from the root up to a given key and call a given
-// function with each element's key and value. For example, the tree has "f",
-// "fo", "foob", "foobar" and "foo" is given, it visits "f" and "fo" elements.
-// If the function returns true, the walk is terminated at there.
-func (t *Tree) WalkPath(path []byte, fn Iterator.ItemIterator) {
-	t.walkPath(t.root, path, fn)
+func key2str(key []byte) string {
+	for _, c := range key {
+		if !strconv.IsPrint(rune(c)) {
+			return hex.EncodeToString(key)
+		}
+	}
+	return string(key)
+}
+
+// create a tree.
+func NewTrie() *Trie {
+	return &Trie{}
+}
+
+func init() {
+	buildMsbMatrix()
 }

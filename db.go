@@ -687,7 +687,7 @@ func (db *DB) parseDataFiles(dataFileIds []int) (unconfirmedRecords []*Record, e
 
 		}
 		fmt.Printf("%s: paser file:%s finished\n", time.Now().Format("2006-01-02 15:04:05.000000"), f.path)
-		runtime.GC()
+		//runtime.GC()
 	}
 
 	for _, recoders := range unconfirmedRecordsMap {
