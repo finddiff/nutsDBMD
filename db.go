@@ -1227,7 +1227,7 @@ func (db *DB) cronFreeInvalid() {
 						invalidCount++
 						invalidList = append(invalidList, key)
 					} else {
-						validCount++q
+						validCount++
 					}
 					return true
 				})
