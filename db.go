@@ -1193,7 +1193,7 @@ func (db *DB) cronFreeInvalid() {
 	bucketNow := ""
 	lastKey := []byte{}
 	lastBucket := ""
-	//batchSize := 10000 * db.opt.InvalidDel
+	//batchSize := 10000 * db.opt.InvalidDel 没有效果不使用
 	invalidList := [][]byte{}
 	listCount := 0
 	invalidCount := 0
