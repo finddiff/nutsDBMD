@@ -150,13 +150,21 @@ func (m *Manager) PrefixScan(bucket string, prefix []byte, offsetNum int, limitN
 		count := 0
 		endcount := offsetNum + limitNum
 		tree.Allprefixed(prefix, func(key []byte, value interface{}) bool {
+			count++
+
 			if count >= offsetNum && count < endcount {
 				resultlist = append(resultlist, value)
-			} else {
+			}
+
+			if count < offsetNum {
 				return true
 			}
-			count++
-			return false
+
+			if count > endcount {
+				return false
+			}
+
+			return true
 		})
 		return resultlist, count, nil
 	}

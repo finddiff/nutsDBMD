@@ -1200,6 +1200,7 @@ func (db *DB) cronFreeInvalid() {
 	validCount := 0
 
 	for range ticker.C {
+		lastKey = []byte{}
 		//查找已经失效的key
 		if buckets, err := db.DataHitMemStruct.FindAllBuckets(); err == nil {
 			for _, bucketNow = range buckets {
@@ -1318,10 +1319,13 @@ func (db *DB) DeleteOldFiles(count int) error {
 		return ErrNotSupportHintBPTSparseIdxMode
 	}
 
-	_, pendingMergeFIds = db.getMaxFileIDAndFileIDs()
+	maxFileID, pendingMergeFIds := db.getMaxFileIDAndFileIDs()
 	delcount := 0
 	needDeleteFile := false
 	for _, pendingMergeFId := range pendingMergeFIds {
+		if int64(pendingMergeFId) == maxFileID {
+			continue
+		}
 		delcount++
 		if delcount > count {
 			break

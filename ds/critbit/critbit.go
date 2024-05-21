@@ -253,6 +253,14 @@ func (t *Trie) Allprefixed(prefix []byte, handle func(key []byte, value interfac
 }
 
 func allprefixed(n *node, handle func([]byte, interface{}) bool) bool {
+
+	if n.external != nil {
+		// dealing with an external node while recursing
+		if !handle(n.external.key, n.external.value) {
+			return false
+		}
+	}
+
 	if n.internal != nil {
 		// dealing with an internal node while recursing
 		for i := 0; i < 2; i++ {
@@ -260,10 +268,8 @@ func allprefixed(n *node, handle func([]byte, interface{}) bool) bool {
 				return false
 			}
 		}
-	} else {
-		// dealing with an external node while recursing
-		return handle(n.external.key, n.external.value)
 	}
+
 	return true
 }
 
