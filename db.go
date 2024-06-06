@@ -1329,7 +1329,7 @@ func (db *DB) DeleteOldFiles(count int) error {
 		if int64(pendingMergeFId) == db.ActiveFile.fileID {
 			continue
 		}
-		delcount++
+
 		if delcount > count {
 			break
 		}
@@ -1351,6 +1351,7 @@ func (db *DB) DeleteOldFiles(count int) error {
 		}
 
 		if needDeleteFile {
+			delcount++
 			path := db.getDataPath(int64(pendingMergeFId))
 			_ = f.rwManager.Release()
 			err = f.rwManager.Close()
